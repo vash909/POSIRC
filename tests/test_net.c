@@ -265,6 +265,18 @@ static void serve(int listener, SSL_CTX *context, enum scenario scenario, int re
                              ":alice!u@h PRIVMSG #room :\00304caffè 😀\017 hello\033[31m\r\n");
                 expect_line(tls, "PRIVMSG #room :caffè 日 😀\r\n");
                 expect_line(tls, "PRIVMSG friend :\00304hello friend\017\r\n");
+                expect_line(tls, "PRIVMSG #room :\001ACTION saluta 日 😀\001\r\n");
+                expect_line(tls, "PRIVMSG friend :\001ACTION waves\001\r\n");
+                {
+                    char maximum[IRC_WIRE_CAPACITY + 1];
+                    size_t prefix = strlen("PRIVMSG #room :\001ACTION ");
+                    memcpy(maximum, "PRIVMSG #room :\001ACTION ", prefix);
+                    memset(maximum + prefix, 'x', 509 - prefix);
+                    memcpy(maximum + 509, "\001\r\n", 4);
+                    expect_line(tls, maximum);
+                }
+                server_write(tls, ":alice!u@h PRIVMSG #room :\001ACTION waves back\001\r\n"
+                                  ":friend!u@h PRIVMSG tester :\001ACTION smiles\001\r\n");
                 expect_line(tls, "LIST\r\n");
                 expect_line(tls, "LIST #room\r\n");
                 server_write(tls, ":srv 321 tester Channel :Users Name\r\n"
@@ -353,11 +365,14 @@ static void app_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file,
         posirc_app_step(&app, -1, 10);
         if (scenario == DROP_QUEUED && app.registered && app.target[0] != '\0') {
             posirc_app_submit(&app, "unsent test");
+            posirc_app_submit(&app, "/me unsent action");
+            CHECK(history_has(&app, "* tester unsent action\017 [queued]"));
             CHECK(history_has(&app, "unsent test\017 [queued]"));
             CHECK(buffer_append_pending(&app.buffers[0], "fallback [queued]", 64) == 0);
             net_disconnect(app.net, "test drop before flushing");
             CHECK(history_has(&app, "fallback [unsent]"));
             CHECK(history_has(&app, "unsent test\017 [unsent]"));
+            CHECK(history_has(&app, "* tester unsent action\017 [unsent]"));
             CHECK(!history_has(&app, "[queued]"));
         }
         if (scenario == CHAT) {
@@ -374,6 +389,29 @@ static void app_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file,
                 }
                 posirc_app_submit(&app, "caffè 日 😀");
                 posirc_app_submit(&app, "/msg friend \00304hello friend\017");
+                posirc_app_submit(&app, "/me saluta 日 😀");
+                CHECK(history_has(&app, "* tester saluta 日 😀\017 [queued]"));
+                posirc_app_submit(&app, "/query friend");
+                posirc_app_submit(&app, "/me waves");
+                CHECK(history_has(&app, "* tester waves\017 [queued]"));
+                posirc_app_submit(&app, "/target #room");
+                {
+                    char maximum[IRC_WIRE_CAPACITY];
+                    size_t prefix = strlen("PRIVMSG #room :\001ACTION ");
+                    size_t length = 509 - prefix, pending;
+                    memcpy(maximum, "/me ", 4);
+                    memset(maximum + 4, 'x', length);
+                    maximum[4 + length] = '\0';
+                    posirc_app_submit(&app, maximum);
+                    pending = net_pending(app.net);
+                    maximum[4 + length] = 'x'; maximum[5 + length] = '\0';
+                    posirc_app_submit(&app, maximum);
+                    CHECK(net_pending(app.net) == pending);
+                    CHECK(history_has(&app, "Message exceeds the IRC limit"));
+                    posirc_app_submit(&app, "/me bad\001delimiter");
+                    CHECK(net_pending(app.net) == pending);
+                    CHECK(history_has(&app, "cannot contain the CTCP delimiter"));
+                }
                 posirc_app_submit(&app, "/list");
                 posirc_app_submit(&app, "/list #room");
                 CHECK(history_has(&app, "[queued]"));
@@ -382,6 +420,9 @@ static void app_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file,
             } else if (stage == 1 && strcmp(app.nick, "other") == 0) {
                 CHECK(history_has(&app, "#room | 3 users | Test topic"));
                 CHECK(history_has(&app, "End of channel list."));
+                CHECK(history_has(&app, "* alice waves back"));
+                CHECK(history_has(&app, "* friend smiles"));
+                CHECK(history_has(&app, "* tester saluta 日 😀\017"));
                 CHECK(strcmp(app.target, "#room") == 0);
                 CHECK(!history_has(&app, "[queued]"));
                 CHECK(history_has(&app, "caffè 日 😀"));

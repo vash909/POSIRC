@@ -287,6 +287,7 @@ conversation list indicates unread activity.
 | `/query nickname` | Select a private-message target |
 | `/target name` | Select a channel or nickname; does not join a channel |
 | `/msg target text` | Send to a target without changing the selected destination |
+| `/me text` | Send a CTCP ACTION to the current channel or query |
 | `/disconnect` | Send QUIT and disconnect, keeping POSIRC open |
 | `/quit` | Send QUIT and exit |
 | `/buffer number\|name` | Switch to an existing buffer (server is number 0) |
@@ -342,6 +343,12 @@ CHANTYPES, STATUSMSG and CASEMAPPING are read from ISUPPORT. NAMES fragments are
 merged with concurrent membership changes so stale names do not resurrect users
 who have left. Topics appear above the conversation. PRIVMSG, NOTICE and CTCP
 ACTION messages are routed to their channel/query.
+
+`/me waves` sends a CTCP ACTION and displays `* yournick waves` in the current
+conversation. It uses the same bounded queue and `[queued]`/`[unsent]` transport
+status as ordinary messages. The 512-byte IRC frame limit includes the ACTION
+envelope; oversized actions are rejected before queueing. No CTCP catalogue,
+automatic replies or additional persistent allocation is needed.
 
 Sidebars hide on narrow terminals (buffers below 70 columns, users below 100).
 The commands `/buffers`, `/buffer` and `/users` remain available. Long transcript

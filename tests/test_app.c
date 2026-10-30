@@ -47,6 +47,10 @@ int main(void)
     posirc_app_submit(&app, "/help");
     line = posirc_app_line(&app, 0);
     errors += check("clear then help", line != NULL && strstr(line, "/connect") != NULL);
+    posirc_app_submit(&app, "/me");
+    errors += check("empty action rejected", strstr(posirc_app_line(&app, app.buffers[0].history_count - 1), "Usage: /me") != NULL);
+    posirc_app_submit(&app, "/me waves");
+    errors += check("offline action rejected", strstr(posirc_app_line(&app, app.buffers[0].history_count - 1), "Not registered") != NULL);
     posirc_app_submit(&app, "/nick tester");
     errors += check("offline nickname", strcmp(app.nick, "tester") == 0);
     posirc_app_submit(&app, "/nick bad nick");

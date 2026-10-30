@@ -502,7 +502,7 @@ static void message_sent(void *context, unsigned long tag)
     if (buffer_complete(buffer, tag, 1)) ++app->revision;
 }
 
-static void send_message(struct posirc_app *app, const char *target, const char *text)
+static void send_message(struct posirc_app *app, const char *target, const char *text, int action)
 {
     struct posirc_buffer *buffer;
     char wire[IRC_WIRE_CAPACITY], echo[POSIRC_TEXT_CAPACITY];
@@ -517,7 +517,12 @@ static void send_message(struct posirc_app *app, const char *target, const char 
         append_line(app, "Choose a target with /join, /query or /target first.");
         return;
     }
-    length = snprintf(wire, sizeof wire, "PRIVMSG %s :%s", target, text);
+    if (action && strchr(text, '\001') != NULL) {
+        append_line(app, "An action cannot contain the CTCP delimiter.");
+        return;
+    }
+    length = snprintf(wire, sizeof wire, "PRIVMSG %s :%s%s%s", target,
+                      action ? "\001ACTION " : "", text, action ? "\001" : "");
     if (length < 0 || length > IRC_WIRE_CAPACITY - 2) {
         append_line(app, "Message exceeds the IRC limit (510 bytes before CRLF).");
         return;
@@ -540,7 +545,10 @@ static void send_message(struct posirc_app *app, const char *target, const char 
     }
     buffer = open_buffer(app, target, channel_valid(app, target) ? BUFFER_CHANNEL : BUFFER_QUERY);
     if (buffer == NULL) buffer = &app->buffers[0];
-    (void)snprintf(echo, sizeof echo, "[%s] <%s> %s\017 [queued]", target, app->nick, text);
+    if (action)
+        (void)snprintf(echo, sizeof echo, "* %s %s\017 [queued]", app->nick, text);
+    else
+        (void)snprintf(echo, sizeof echo, "[%s] <%s> %s\017 [queued]", target, app->nick, text);
     if (buffer_append_pending(buffer, echo, tag) != 0) ++app->dropped_lines;
     if (buffer != posirc_app_current(app) && buffer->unread < POSIRC_HISTORY_CAPACITY) ++buffer->unread;
     ++app->revision;
@@ -569,7 +577,7 @@ void posirc_app_submit(struct posirc_app *app, const char *line)
         return;
     }
     if (line[0] != '/') {
-        send_message(app, app->target, line);
+        send_message(app, app->target, line, 0);
         return;
     }
     (void)snprintf(copy, sizeof copy, "%s", line);
@@ -591,6 +599,7 @@ void posirc_app_submit(struct posirc_app *app, const char *line)
         append_line(app, "/query nickname      Select a private conversation");
         append_line(app, "/target name         Select an existing channel or conversation");
         append_line(app, "/msg target text     Send a private or channel message");
+        append_line(app, "/me text             Send an action to the current channel or query");
         append_line(app, "/disconnect | /quit  Disconnect or exit");
         append_line(app, "/clear | /help       Clear transcript or show local commands");
         append_line(app, "/buffer name|number | /buffers | /users | /close");
@@ -667,7 +676,12 @@ void posirc_app_submit(struct posirc_app *app, const char *line)
         if (argument == NULL || *cursor == '\0')
             append_line(app, "Usage: /msg target text");
         else
-            send_message(app, argument, cursor);
+            send_message(app, argument, cursor, 0);
+    } else if (strcmp(command, "/me") == 0) {
+        if (*cursor == '\0')
+            append_line(app, "Usage: /me text");
+        else
+            send_message(app, app->target, cursor, 1);
     } else if (strcmp(command, "/list") == 0) {
         argument = take_word(&cursor);
         if (*cursor != '\0' || (argument != NULL && !channel_valid(app, argument)))
