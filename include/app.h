@@ -19,6 +19,7 @@ struct posirc_app {
     unsigned long revision, message_serial;
     int running, quitting, registered, case_mapping;
     char nick[64];
+    char quit_message[256], part_message[256], realname[128];
     char target[POSIRC_TARGET_CAPACITY];
     char autojoin[POSIRC_TARGET_CAPACITY];
     char server[256], server_port[6];

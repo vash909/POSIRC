@@ -238,7 +238,7 @@ static void serve(int listener, SSL_CTX *context, enum scenario scenario, int re
             server_write(tls, "DONE\r\n");
         } else {
             expect_line(tls, "NICK tester\r\n");
-            expect_line(tls, "USER posirc 0 * :POSIRC client\r\n");
+            expect_line(tls, scenario == CHAT ? "USER posirc 0 * :Nome personale 日\r\n" : "USER posirc 0 * :POSIRC client\r\n");
             if (scenario == DROP_QUEUED) {
                 char byte;
                 server_write(tls, ":srv 001 tester :Welcome\r\n:tester!u@h JOIN #room\r\n");
@@ -284,9 +284,9 @@ static void serve(int listener, SSL_CTX *context, enum scenario scenario, int re
                                   ":srv 323 tester :End of LIST\r\n");
                 expect_line(tls, "NICK other\r\n");
                 server_write(tls, ":tester!u@h NICK :other\r\n");
-                expect_line(tls, "PART #room\r\n");
+                expect_line(tls, "PART #room :Ci vediamo 😀\r\n");
                 server_write(tls, ":other!u@h PART #room :leaving\r\n");
-                expect_line(tls, "QUIT :Leaving POSIRC\r\n");
+                expect_line(tls, "QUIT :A presto 日\r\n");
             }
         }
         (void)SSL_shutdown(tls);
@@ -357,6 +357,10 @@ static void app_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file,
     time_t deadline = time(NULL) + 8;
     int stage = 0;
     posirc_app_init(&app);
+    if (scenario == CHAT) {
+        posirc_app_submit(&app, "/set --realname Nome personale 日");
+        posirc_app_submit(&app, "/set --quit A presto 日");
+    }
     (void)snprintf(app.nick, sizeof app.nick, "tester");
     (void)snprintf(app.autojoin, sizeof app.autojoin, "#room");
     REQUIRE(posirc_app_setup(&app, ca_file) == 0);
@@ -428,6 +432,7 @@ static void app_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file,
                 CHECK(strcmp(app.target, "#room") == 0);
                 CHECK(!history_has(&app, "[queued]"));
                 CHECK(history_has(&app, "caffè 日 😀"));
+                posirc_app_submit(&app, "/set --part Ci vediamo 😀");
                 posirc_app_submit(&app, "/part");
                 stage = 2;
             } else if (stage == 2 && app.target[0] == '\0') {

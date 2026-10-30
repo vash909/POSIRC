@@ -281,6 +281,7 @@ conversation list indicates unread activity.
 | --- | --- |
 | `/connect host [port]` | Resolve and connect using verified TLS; default port 6697 |
 | `/nick nickname` | Set the offline nickname or request a nickname change |
+| `/set [--quit text \| --part text \| --realname text \| --reset]` | View or change personal settings for this process |
 | `/join #channel [key]` | Join a channel, selecting it on server confirmation |
 | `/list [#channel]` | Request channels; results appear in `/buffer 0` |
 | `/part [#channel]` | Leave a channel; defaults to the current target |
@@ -303,6 +304,26 @@ its history until `/close`. Reconnecting to the same host and port retains
 histories; connecting to a different endpoint clears conversation buffers so
 messages from different servers cannot be mixed. Server status has its own
 buffer. Nickname collisions remain visible; use `/nick anothername` to retry.
+
+Use one setting flag per command; everything after it is literal text, including
+spaces, without shell quotes:
+
+```text
+/set --realname Nome Cognome
+/set --quit A presto!
+/set --part Ci vediamo dopo
+/set
+```
+
+`/set` shows all three values; `/set --reset` restores defaults (`Leaving POSIRC`
+for QUIT, no PART reason, `POSIRC client` as the real name). An empty `--quit` or
+`--part` removes that reason. Reasons accept up to 255 UTF-8 bytes; the real name
+requires 1–127 bytes. Oversized values are rejected without truncation. The real
+name is the USER registration field, separate from the nickname: set it before
+connecting; changing it during a connection takes effect at the next registration.
+QUIT text applies to `/quit` and `/disconnect`, and PART text to `/part`.
+Settings survive reconnects within this process and are not saved to disk.
+`/nick` and the other existing IRC commands keep their direct syntax.
 
 `/list` requests the server's channel list; `/list #channel` limits the request
 to one channel. Results go to the server buffer without changing focus or
@@ -588,7 +609,7 @@ requirements. Cache capacities alone do not measure hit rates.
 
 | Object / bound | Size on this build | Consequence |
 | --- | ---: | --- |
-| `struct posirc_app` | 278,480 B | Includes all 64 buffer descriptors; excludes pointed-to histories/users and TLS allocations |
+| `struct posirc_app` | 279,120 B | Includes all 64 buffer descriptors and 640 B of personal settings; excludes pointed-to histories/users and TLS allocations |
 | One `struct posirc_buffer` | 4,328 B | Includes a 2,048 B table of 256 history pointers, drafts, topic and wrapped-row scroll position |
 | One history header | 16 B | Stores allocation capacity and the pending-send token; text follows in the same allocation |
 | One user record | 140 B | 200 users reserve 256 records through geometric growth: 35 KiB per populated channel |

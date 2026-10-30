@@ -13,11 +13,49 @@ static int check(const char *label, int condition)
     return 0;
 }
 
+static int settings(void)
+{
+    struct posirc_app app;
+    char command[400];
+    int errors = 0;
+    posirc_app_init(&app);
+    errors += check("default quit", strcmp(app.quit_message, "Leaving POSIRC") == 0);
+    errors += check("default part has no reason", app.part_message[0] == '\0');
+    errors += check("default real name", strcmp(app.realname, "POSIRC client") == 0);
+    posirc_app_submit(&app, "/set --quit A presto 日");
+    posirc_app_submit(&app, "/set --part Ci vediamo 😀");
+    posirc_app_submit(&app, "/set --realname Nome Cognome è");
+    errors += check("custom quit", strcmp(app.quit_message, "A presto 日") == 0);
+    errors += check("custom part", strcmp(app.part_message, "Ci vediamo 😀") == 0);
+    errors += check("custom real name", strcmp(app.realname, "Nome Cognome è") == 0);
+    posirc_app_submit(&app, "/set --quit bad\r\nQUIT");
+    errors += check("setting injection rejected", strcmp(app.quit_message, "A presto 日") == 0);
+    memcpy(command, "/set --quit ", 12);
+    memset(command + 12, 'x', 256); command[268] = '\0';
+    posirc_app_submit(&app, command);
+    errors += check("overlong reason rejected without truncation", strcmp(app.quit_message, "A presto 日") == 0);
+    command[267] = '\0'; posirc_app_submit(&app, command);
+    errors += check("maximum reason accepted", strlen(app.quit_message) == 255);
+    posirc_app_submit(&app, "/set --realname");
+    errors += check("empty real name rejected", strcmp(app.realname, "Nome Cognome è") == 0);
+    posirc_app_submit(&app, "/set --part");
+    posirc_app_submit(&app, "/set --quit");
+    errors += check("reasons can be cleared", app.quit_message[0] == '\0' && app.part_message[0] == '\0');
+    posirc_app_submit(&app, "/set --reset");
+    errors += check("settings reset", strcmp(app.quit_message, "Leaving POSIRC") == 0 &&
+                    app.part_message[0] == '\0' && strcmp(app.realname, "POSIRC client") == 0);
+    posirc_app_submit(&app, "/set --unknown value");
+    posirc_app_submit(&app, "/set");
+    errors += check("settings query", strstr(posirc_app_line(&app, app.buffers[0].history_count - 1), "--realname: POSIRC client") != NULL);
+    posirc_app_destroy(&app);
+    return errors;
+}
+
 int main(void)
 {
     struct posirc_app app;
     size_t index;
-    int errors = 0;
+    int errors = settings();
     const char *line;
 
     posirc_app_init(&app);

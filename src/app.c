@@ -396,7 +396,7 @@ static void network_event(void *context, enum net_event event, const char *text,
         log_to(app, &app->buffers[0], "Connected to %s using %s; certificate verified.", app->server, text);
         app->registration_started = time(NULL);
         if (send_command(app, "NICK %s", app->nick) != 0 ||
-            send_command(app, "USER posirc 0 * :POSIRC client") != 0)
+            send_command(app, "USER posirc 0 * :%s", app->realname) != 0)
             net_disconnect(app->net, "Cannot queue IRC registration.");
         break;
     case NET_DATA:
@@ -423,12 +423,20 @@ static void network_event(void *context, enum net_event event, const char *text,
     }
 }
 
+static void settings_defaults(struct posirc_app *app)
+{
+    (void)snprintf(app->quit_message, sizeof app->quit_message, "Leaving POSIRC");
+    app->part_message[0] = '\0';
+    (void)snprintf(app->realname, sizeof app->realname, "POSIRC client");
+}
+
 void posirc_app_init(struct posirc_app *app)
 {
     memset(app, 0, sizeof *app);
     app->running = 1;
     buffer_init(&app->buffers[0], BUFFER_SERVER, "*server*");
     support_defaults(app);
+    settings_defaults(app);
     (void)snprintf(app->nick, sizeof app->nick, "posirc");
     append_line(app, "Welcome to POSIRC " POSIRC_VERSION ". TLS is required for every connection.");
     append_line(app, "Use /nick yournick, then /connect server [port]. Default port: 6697.");
@@ -563,7 +571,7 @@ static void disconnect_app(struct posirc_app *app, int quitting)
 {
     app->quitting = quitting;
     if (net_ready(app->net)) {
-        (void)send_command(app, "QUIT :Leaving POSIRC");
+        (void)send_command(app, "QUIT%s%s", app->quit_message[0] ? " :" : "", app->quit_message);
         net_finish(app->net);
     } else if (net_active(app->net)) {
         net_disconnect(app->net, "Connection cancelled.");
@@ -595,9 +603,37 @@ void posirc_app_submit(struct posirc_app *app, const char *line)
     } else if (strcmp(command, "/clear") == 0 && *cursor == '\0') {
         buffer_clear(posirc_app_current(app));
         ++app->revision;
+    } else if (strcmp(command, "/set") == 0) {
+        char *setting = NULL;
+        size_t capacity = 0;
+        argument = take_word(&cursor);
+        if (argument == NULL) {
+            log_to(app, posirc_app_current(app), "--quit: %s", app->quit_message);
+            log_to(app, posirc_app_current(app), "--part: %s", app->part_message);
+            log_to(app, posirc_app_current(app), "--realname: %s", app->realname);
+            return;
+        }
+        if (strcmp(argument, "--reset") == 0 && *cursor == '\0') {
+            settings_defaults(app);
+            append_line(app, "Personal settings restored to defaults.");
+            return;
+        }
+        if (strcmp(argument, "--quit") == 0) { setting = app->quit_message; capacity = sizeof app->quit_message; }
+        else if (strcmp(argument, "--part") == 0) { setting = app->part_message; capacity = sizeof app->part_message; }
+        else if (strcmp(argument, "--realname") == 0) { setting = app->realname; capacity = sizeof app->realname; }
+        if (setting == NULL) {
+            append_line(app, "Usage: /set [--quit text | --part text | --realname text | --reset]");
+        } else if (strlen(cursor) >= capacity || (setting == app->realname && *cursor == '\0')) {
+            log_to(app, posirc_app_current(app), "Setting rejected: %s accepts %s%zu UTF-8 bytes.",
+                   argument, setting == app->realname ? "1-" : "0-", capacity - 1);
+        } else {
+            (void)snprintf(setting, capacity, "%s", cursor);
+            append_line(app, setting == app->realname ? "Real name saved for the next IRC registration." : "Message setting updated.");
+        }
     } else if (strcmp(command, "/help") == 0) {
         append_line(app, "/connect host [port]  Connect with verified TLS (default 6697)");
         append_line(app, "/nick nickname        Set or change your nickname");
+        append_line(app, "/set --quit|--part|--realname text | /set --reset | /set");
         append_line(app, "/join #channel [key]  Join a channel; select it after server confirmation");
         append_line(app, "/list [#channel]     List channels in the server buffer (bounded history)");
         append_line(app, "/part [#channel]     Leave a channel (default: current target)");
@@ -707,8 +743,10 @@ void posirc_app_submit(struct posirc_app *app, const char *line)
         } else if (!app->registered) {
             append_line(app, "Wait for IRC registration before joining or leaving channels.");
         } else {
-            (void)send_command(app, "%s %s%s%s", join ? "JOIN" : "PART", argument,
-                               extra != NULL ? " " : "", extra != NULL ? extra : "");
+            if (join)
+                (void)send_command(app, "JOIN %s%s%s", argument, extra != NULL ? " " : "", extra != NULL ? extra : "");
+            else
+                (void)send_command(app, "PART %s%s%s", argument, app->part_message[0] ? " :" : "", app->part_message);
         }
     } else {
         append_line(app, "Unknown command. Type /help for local commands.");
