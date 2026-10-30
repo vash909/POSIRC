@@ -7,7 +7,7 @@
 #include "irc.h"
 #include "buffer.h"
 
-#define POSIRC_VERSION "0.3.0-beta.1"
+#define POSIRC_VERSION "0.3.1-beta.1"
 
 struct posirc_net;
 
