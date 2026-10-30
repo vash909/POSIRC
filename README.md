@@ -8,6 +8,10 @@ The terminal interface provides separate conversation buffers, channel user list
 UTF-8 editing and IRC colors. Memory use is bounded, histories allocate only as
 needed, and the client requires no scripting runtime.
 
+POSIRC is licensed under **GPL-3.0-only**. See [LICENSE](LICENSE). This license
+also applies to the already published `v0.3.0-beta.1` source and POSIRC binaries;
+third-party dependencies retain their own licenses.
+
 ```sh
 # Interactive client
 ./posirc -s irc.azzurra.chat -p 6697 -n mynick -j '#canaletest'
