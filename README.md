@@ -346,7 +346,11 @@ not affect IRC parsing.
 `getaddrinfo()` runs in a short-lived child process because POSIX provides no
 portable asynchronous equivalent. Its result is read over a nonblocking pipe;
 connection cancellation stops and reaps the child. IPv4 and IPv6 addresses are
-tried in resolver order, up to 16 addresses. This is sequential fallback, not
+tried in resolver order, up to 16 addresses. A TCP socket whose local and peer
+endpoints are identical is rejected before TLS, so loopback self-connections
+caused by ephemeral-port reuse can fall back to the next address. This check
+adds two socket queries at connection setup, not per message.
+This is sequential fallback, not
 parallel connection racing. DNS, TCP setup and the TLS handshake share a
 30-second deadline, with at most 10 seconds per pending TCP connection. IRC
 registration has a separate 60-second timeout.

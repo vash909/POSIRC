@@ -317,6 +317,32 @@ failure:
     fail_tls(net, "TLS setup", SSL_ERROR_SSL);
 }
 
+/* TCP simultaneous-open can connect a loopback socket to itself when its
+ * ephemeral port equals an unbound destination port. It is not the requested
+ * server; continue address fallback instead of feeding our ClientHello back
+ * into TLS (notably with localhost's IPv6 address on NetBSD). */
+static int connected_to_self(int fd)
+{
+    struct sockaddr_storage local, peer;
+    socklen_t local_size = sizeof local, peer_size = sizeof peer;
+    if (getsockname(fd, (struct sockaddr *)&local, &local_size) < 0 ||
+        getpeername(fd, (struct sockaddr *)&peer, &peer_size) < 0 ||
+        local.ss_family != peer.ss_family)
+        return 0;
+    if (local.ss_family == AF_INET) {
+        const struct sockaddr_in *a = (const struct sockaddr_in *)&local;
+        const struct sockaddr_in *b = (const struct sockaddr_in *)&peer;
+        return a->sin_port == b->sin_port && a->sin_addr.s_addr == b->sin_addr.s_addr;
+    }
+    if (local.ss_family == AF_INET6) {
+        const struct sockaddr_in6 *a = (const struct sockaddr_in6 *)&local;
+        const struct sockaddr_in6 *b = (const struct sockaddr_in6 *)&peer;
+        return a->sin6_port == b->sin6_port && a->sin6_scope_id == b->sin6_scope_id &&
+               memcmp(&a->sin6_addr, &b->sin6_addr, sizeof a->sin6_addr) == 0;
+    }
+    return 0;
+}
+
 static void next_address(struct posirc_net *net)
 {
     if (net->fd >= 0)
@@ -334,11 +360,11 @@ static void next_address(struct posirc_net *net)
             continue;
         }
         result = connect(net->fd, (const struct sockaddr *)&address->value, address->length);
-        if (result == 0) {
+        if (result == 0 && !connected_to_self(net->fd)) {
             start_tls(net);
             return;
         }
-        if (errno == EINPROGRESS || errno == EINTR) {
+        if (result < 0 && (errno == EINPROGRESS || errno == EINTR)) {
             net->connect_deadline = now_seconds() + CONNECT_SECONDS;
             set_phase(net, CONNECTING);
             return;
@@ -537,7 +563,8 @@ void net_step(struct posirc_net *net, int input_fd, int timeout_ms)
     } else if (net->phase == CONNECTING && ready != 0) {
         int error = 0;
         socklen_t length = sizeof error;
-        if (getsockopt(net->fd, SOL_SOCKET, SO_ERROR, &error, &length) < 0 || error != 0)
+        if (getsockopt(net->fd, SOL_SOCKET, SO_ERROR, &error, &length) < 0 || error != 0 ||
+            connected_to_self(net->fd))
             next_address(net);
         else
             start_tls(net);
