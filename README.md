@@ -286,6 +286,7 @@ conversation list indicates unread activity.
 | `/list [#channel]` | Request channels; results appear in `/buffer 0` |
 | `/part [#channel]` | Leave a channel; defaults to the current target |
 | `/query nickname` | Select a private-message target |
+| `/whois nickname` | Request user details; results appear in `/buffer 0` |
 | `/target name` | Select a channel or nickname; does not join a channel |
 | `/msg target text` | Send to a target without changing the selected destination |
 | `/me text` | Send a CTCP ACTION to the current channel or query |
@@ -304,6 +305,14 @@ its history until `/close`. Reconnecting to the same host and port retains
 histories; connecting to a different endpoint clears conversation buffers so
 messages from different servers cannot be mixed. Server status has its own
 buffer. Nickname collisions remain visible; use `/nick anothername` to retry.
+
+`/whois nickname` requests details for one nickname after registration. Results
+go to the bounded server history without changing the selected buffer or opening
+a private conversation. Common replies show user/host, real name, server,
+channels, away/operator status, idle/sign-on time and account/TLS information when
+the server supplies them. Errors and other server-specific replies remain visible
+as raw numerics. Server rows use the same `***` clipping as `/list`. There is no
+WHOIS cache or new persistent allocation. See the [WHOIS protocol](https://modern.ircdocs.horse/#whois-message).
 
 Use one setting flag per command; everything after it is literal text, including
 spaces, without shell quotes:

@@ -232,6 +232,36 @@ static void channel_mode(struct posirc_app *app, struct posirc_buffer *buffer, s
     ++app->revision;
 }
 
+static int whois_reply(struct posirc_app *app, const struct irc_message *message)
+{
+    const char *command = message->command;
+    const char *nick;
+    if ((command[0] != '3' && strcmp(command, "671") != 0) || message->count < 3) return 0;
+    nick = message->params[1];
+    if (strcmp(command, "311") == 0 && message->count >= 6) {
+        log_to(app, &app->buffers[0], "WHOIS %s: %s@%s", nick, message->params[2], message->params[3]);
+        log_to(app, &app->buffers[0], "WHOIS %s real name: %s", nick, message->params[5]);
+    } else if (strcmp(command, "312") == 0 && message->count >= 4) {
+        log_to(app, &app->buffers[0], "WHOIS %s server: %s | %s", nick, message->params[2], message->params[3]);
+    } else if (strcmp(command, "317") == 0) {
+        log_to(app, &app->buffers[0], "WHOIS %s idle: %s seconds", nick, message->params[2]);
+        if (message->count >= 5)
+            log_to(app, &app->buffers[0], "WHOIS %s sign-on (Unix time): %s", nick, message->params[3]);
+    } else if (strcmp(command, "319") == 0) {
+        log_to(app, &app->buffers[0], "WHOIS %s channels: %s", nick, message->params[2]);
+    } else if (strcmp(command, "330") == 0 && message->count >= 4) {
+        log_to(app, &app->buffers[0], "WHOIS %s account: %s", nick, message->params[2]);
+    } else if (strcmp(command, "301") == 0) {
+        log_to(app, &app->buffers[0], "%s is away: %s", nick, message->params[2]);
+    } else if (strcmp(command, "318") == 0) {
+        log_to(app, &app->buffers[0], "WHOIS %s: end.", nick);
+    } else if (strcmp(command, "307") == 0 || strcmp(command, "313") == 0 ||
+               strcmp(command, "320") == 0 || strcmp(command, "671") == 0) {
+        log_to(app, &app->buffers[0], "WHOIS %s: %s", nick, message->params[2]);
+    } else return 0;
+    return 1;
+}
+
 int posirc_app_receive(void *context, char *line)
 {
     struct posirc_app *app = context;
@@ -263,6 +293,8 @@ int posirc_app_receive(void *context, char *line)
         }
     } else if (strcmp(message.command, "005") == 0) {
         for (index = 1; index < message.count; ++index) support_token(app, message.params[index]);
+    } else if (whois_reply(app, &message)) {
+        return 0;
     } else if (strcmp(message.command, "321") == 0) {
         append_to(app, &app->buffers[0], "Channel list: name | users | topic (latest 256 history entries retained)");
         return 0;
@@ -638,6 +670,7 @@ void posirc_app_submit(struct posirc_app *app, const char *line)
         append_line(app, "/list [#channel]     List channels in the server buffer (bounded history)");
         append_line(app, "/part [#channel]     Leave a channel (default: current target)");
         append_line(app, "/query nickname      Select a private conversation");
+        append_line(app, "/whois nickname      Request user details in the server buffer");
         append_line(app, "/target name         Select an existing channel or conversation");
         append_line(app, "/msg target text     Send a private or channel message");
         append_line(app, "/me text             Send an action to the current channel or query");
@@ -706,6 +739,14 @@ void posirc_app_submit(struct posirc_app *app, const char *line)
             (void)snprintf(app->nick, sizeof app->nick, "%s", argument);
             ++app->revision;
         }
+    } else if (strcmp(command, "/whois") == 0) {
+        argument = take_word(&cursor);
+        if (!irc_nick_valid(argument) || *cursor != '\0')
+            append_line(app, "Usage: /whois nickname");
+        else if (!app->registered)
+            append_line(app, "Wait for IRC registration before requesting WHOIS.");
+        else if (send_command(app, "WHOIS %s", argument) == 0)
+            log_to(app, posirc_app_current(app), "WHOIS %s requested; results in /buffer 0.", argument);
     } else if (strcmp(command, "/query") == 0 || strcmp(command, "/target") == 0) {
         argument = take_word(&cursor);
         if (*cursor != '\0' || (!irc_nick_valid(argument) &&

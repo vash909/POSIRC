@@ -282,7 +282,17 @@ static void serve(int listener, SSL_CTX *context, enum scenario scenario, int re
                 server_write(tls, ":srv 321 tester Channel :Users Name\r\n"
                                   ":srv 322 tester #room 3 :Test topic\r\n"
                                   ":srv 323 tester :End of LIST\r\n");
+                expect_line(tls, "WHOIS José\r\n");
+                expect_line(tls, "WHOIS missing\r\n");
+                server_write(tls, ":srv 311 tester José user host * :Nome personale 日\r\n"
+                                  ":srv 319 tester José :@#room +#other\r\n"
+                                  ":srv 330 tester José account :is logged in as\r\n"
+                                  ":srv 671 tester José :is using a secure connection\r\n"
+                                  ":srv 318 tester José :End of WHOIS\r\n"
+                                  ":srv 401 tester missing :No such nick\r\n");
                 expect_line(tls, "NICK other\r\n");
+                server_write(tls, "PING :after-whois\r\n");
+                expect_line(tls, "PONG :after-whois\r\n");
                 server_write(tls, ":tester!u@h NICK :other\r\n");
                 expect_line(tls, "PART #room :Ci vediamo 😀\r\n");
                 server_write(tls, ":other!u@h PART #room :leaving\r\n");
@@ -420,12 +430,19 @@ static void app_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file,
                 }
                 posirc_app_submit(&app, "/list");
                 posirc_app_submit(&app, "/list #room");
+                posirc_app_submit(&app, "/whois José");
+                posirc_app_submit(&app, "/whois missing");
                 CHECK(history_has(&app, "[queued]"));
                 posirc_app_submit(&app, "/nick other");
                 stage = 1;
             } else if (stage == 1 && strcmp(app.nick, "other") == 0) {
                 CHECK(history_has(&app, "#room | 3 users | Test topic"));
                 CHECK(history_has(&app, "End of channel list."));
+                CHECK(history_has(&app, "WHOIS José real name: Nome personale 日"));
+                CHECK(history_has(&app, "WHOIS José channels: @#room +#other"));
+                CHECK(history_has(&app, "WHOIS José account: account"));
+                CHECK(history_has(&app, "WHOIS José: end."));
+                CHECK(history_has(&app, "401 tester missing :No such nick"));
                 CHECK(history_has(&app, "* alice waves back"));
                 CHECK(history_has(&app, "* friend smiles"));
                 CHECK(history_has(&app, "* tester saluta 日 😀\017"));

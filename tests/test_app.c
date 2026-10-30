@@ -51,11 +51,60 @@ static int settings(void)
     return errors;
 }
 
+static int whois(void)
+{
+    const struct { const char *reply, *expected; } cases[] = {
+        {":srv 311 posirc José user host * :Nome personale 日", "WHOIS José real name: Nome personale 日"},
+        {":srv 312 posirc José irc.example :Example network", "WHOIS José server: irc.example | Example network"},
+        {":srv 313 posirc José :is an IRC operator", "WHOIS José: is an IRC operator"},
+        {":srv 317 posirc José 42 1700000000 :seconds idle, signon time", "WHOIS José sign-on (Unix time): 1700000000"},
+        {":srv 317 posirc José 42 :seconds idle", "WHOIS José idle: 42 seconds"},
+        {":srv 319 posirc José :@#one +#two", "WHOIS José channels: @#one +#two"},
+        {":srv 301 posirc José :Out for caffè", "José is away: Out for caffè"},
+        {":srv 330 posirc José account :is logged in as", "WHOIS José account: account"},
+        {":srv 671 posirc José :is using a secure connection", "WHOIS José: is using a secure connection"},
+        {":srv 318 posirc José :End of WHOIS", "WHOIS José: end."},
+        {":srv 401 posirc missing :No such nick", "-- :srv 401 posirc missing :No such nick"},
+        {":srv 338 posirc José ip :extra server detail", "-- :srv 338 posirc José ip :extra server detail"},
+        {":srv 311 posirc José :incomplete reply", "-- :srv 311 posirc José :incomplete reply"}
+    };
+    const char *invalid[] = {"/whois", "/whois #room", "/whois a,b", "/whois *", "/whois nick extra"};
+    struct posirc_app app;
+    struct posirc_buffer *current;
+    char reply[IRC_WIRE_CAPACITY];
+    size_t i, before;
+    int errors = 0;
+    posirc_app_init(&app);
+    posirc_app_submit(&app, "/query friend");
+    current = posirc_app_current(&app);
+    posirc_app_submit(&app, "/whois José");
+    errors += check("offline WHOIS rejected", strstr(buffer_line(current, current->history_count - 1), "registration") != NULL);
+    for (i = 0; i < sizeof invalid / sizeof invalid[0]; ++i) {
+        posirc_app_submit(&app, invalid[i]);
+        errors += check("invalid WHOIS rejected", strstr(buffer_line(current, current->history_count - 1), "Usage: /whois") != NULL);
+    }
+    for (i = 0; i < sizeof cases / sizeof cases[0]; ++i) {
+        before = current->history_count;
+        (void)snprintf(reply, sizeof reply, "%s", cases[i].reply);
+        errors += check("WHOIS reply accepted", posirc_app_receive(&app, reply) == 0);
+        errors += check("WHOIS formatting", strcmp(buffer_line(&app.buffers[0], app.buffers[0].history_count - 1), cases[i].expected) == 0);
+        errors += check("WHOIS preserves focus and private history", posirc_app_current(&app) == current && current->history_count == before);
+    }
+    errors += check("WHOIS does not open a query", posirc_app_find(&app, "José") == NULL);
+    for (i = 0; i < 1000; ++i) {
+        (void)snprintf(reply, sizeof reply, ":srv 319 posirc José :#channel%zu", i);
+        errors += check("fragmented WHOIS channels", posirc_app_receive(&app, reply) == 0);
+    }
+    errors += check("WHOIS history remains bounded", app.buffers[0].history_count == POSIRC_HISTORY_CAPACITY);
+    posirc_app_destroy(&app);
+    return errors;
+}
+
 int main(void)
 {
     struct posirc_app app;
     size_t index;
-    int errors = settings();
+    int errors = settings() + whois();
     const char *line;
 
     posirc_app_init(&app);
