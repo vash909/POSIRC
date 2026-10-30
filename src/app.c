@@ -358,6 +358,9 @@ int posirc_app_receive(void *context, char *line)
             size_t length = strlen(body);
             if (length > 0 && body[length - 1] == 1) body[length - 1] = '\0';
             log_to(app, buffer, "* %s %s", sender, body);
+        } else if (buffer != NULL && buffer->type == BUFFER_CHANNEL) {
+            log_to(app, buffer, "%s%s%s %s", notice ? "-" : "<", sender,
+                   notice ? "-" : ">", message.params[1]);
         } else {
             log_to(app, buffer, "[%s] %s%s%s %s", target, notice ? "-" : "<", sender,
                    notice ? "-" : ">", message.params[1]);
@@ -547,6 +550,8 @@ static void send_message(struct posirc_app *app, const char *target, const char 
     if (buffer == NULL) buffer = &app->buffers[0];
     if (action)
         (void)snprintf(echo, sizeof echo, "* %s %s\017 [queued]", app->nick, text);
+    else if (buffer->type == BUFFER_CHANNEL)
+        (void)snprintf(echo, sizeof echo, "<%s> %s\017 [queued]", app->nick, text);
     else
         (void)snprintf(echo, sizeof echo, "[%s] <%s> %s\017 [queued]", target, app->nick, text);
     if (buffer_append_pending(buffer, echo, tag) != 0) ++app->dropped_lines;

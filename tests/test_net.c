@@ -388,6 +388,8 @@ static void app_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file,
                     CHECK(history_has(&app, "caffè 😀"));
                 }
                 posirc_app_submit(&app, "caffè 日 😀");
+                CHECK(strcmp(buffer_line(posirc_app_current(&app), posirc_app_current(&app)->history_count - 1),
+                             "<tester> caffè 日 😀\017 [queued]") == 0);
                 posirc_app_submit(&app, "/msg friend \00304hello friend\017");
                 posirc_app_submit(&app, "/me saluta 日 😀");
                 CHECK(history_has(&app, "* tester saluta 日 😀\017 [queued]"));

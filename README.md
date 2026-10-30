@@ -345,6 +345,8 @@ CHANTYPES, STATUSMSG and CASEMAPPING are read from ISUPPORT. NAMES fragments are
 merged with concurrent membership changes so stale names do not resurrect users
 who have left. Topics appear above the conversation. PRIVMSG, NOTICE and CTCP
 ACTION messages are routed to their channel/query.
+Channel chat displays `<nick> message` (or `-nick- message` for notices); the
+channel name appears in the header and buffer sidebar rather than on every line.
 
 `/me waves` sends a CTCP ACTION and displays `* yournick waves` in the current
 conversation. It uses the same bounded queue and `[queued]`/`[unsent]` transport

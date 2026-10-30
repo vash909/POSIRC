@@ -211,7 +211,7 @@ static void render_case(const char *terminal, int expect_color)
     short pair;
     wchar_t combining;
     char terminal_name[64];
-    int text_column = 21 + (int)strlen("[#room] <alice> ");
+    int text_column = 21 + (int)strlen("<alice> ");
     CHECK(output != NULL && input != NULL);
     if (output == NULL || input == NULL) exit(EXIT_FAILURE);
     fprintf(stderr, "Testing curses terminal: %s\n", terminal);

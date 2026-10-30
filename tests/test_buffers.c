@@ -86,7 +86,7 @@ int main(void)
     selected = app.active_buffer;
     receive(&app, ":alice!u@h PRIVMSG #uno :\00304caffè 😀\017");
     CHECK(app.active_buffer == selected && one->unread > 0);
-    CHECK(strstr(buffer_line(one, one->history_count - 1), "caffè 😀") != NULL);
+    CHECK(strcmp(buffer_line(one, one->history_count - 1), "<alice> \00304caffè 😀\017") == 0);
     CHECK(strstr(buffer_line(two, two->history_count - 1), "caffè") == NULL);
     receive(&app, ":José PRIVMSG posirc :こんにちは");
     query = posirc_app_find(&app, "José");
