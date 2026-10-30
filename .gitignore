@@ -1,0 +1,17 @@
+*.o
+/posirc
+/tests/test_app
+/tests/test_irc
+/tests/test_net
+/tests/test_text
+/tests/test_buffers
+/tests/test_ui
+
+# Local editor/agent state and private configuration
+/.agents/
+/.aws/
+/.codex/
+.env
+.env.*
+*.pem
+*.key

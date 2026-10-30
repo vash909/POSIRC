@@ -1,0 +1,46 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libncurses-dev libssl-dev
+      - name: Build and test
+        run: >-
+          make all test ui-test integration-test
+          CC=${{ matrix.compiler }}
+          CFLAGS='-std=c99 -O2 -Wall -Wextra -Wpedantic -Werror'
+
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install dependencies
+        run: brew install openssl@3 ncurses
+      - name: Build and test
+        run: |
+          posirc_openssl_prefix=$(brew --prefix openssl@3)
+          posirc_ncurses_prefix=$(brew --prefix ncurses)
+          make all test ui-test integration-test \
+            CC=clang \
+            CPPFLAGS="-Iinclude -I${posirc_openssl_prefix}/include -I${posirc_ncurses_prefix}/include" \
+            LDFLAGS="-L${posirc_openssl_prefix}/lib -L${posirc_ncurses_prefix}/lib" \
+            CFLAGS='-std=c99 -O2 -Wall -Wextra -Wpedantic -Werror'
