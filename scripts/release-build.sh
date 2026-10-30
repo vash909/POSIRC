@@ -25,7 +25,7 @@ linux)
     if readelf -d posirc | grep -q NEEDED; then exit 1; fi
     strip posirc
     apk info -v > "$stage/packages.txt"
-    musl_version=$(sed -n 's/^musl-\(.*\)-r[0-9]*$/\1/p' "$stage/packages.txt")
+    musl_version=$(sed -n 's/^musl-\([0-9][^-]*\)-r[0-9]*$/\1/p' "$stage/packages.txt")
     test -n "$musl_version"
     curl --fail --location --retry 3 \
         "https://git.musl-libc.org/cgit/musl/plain/COPYRIGHT?h=v$musl_version" \

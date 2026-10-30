@@ -15,6 +15,15 @@ These community beta executables are ad-hoc signed, not Apple notarized.
 Your system may require approval before running downloaded software.
 For a CA bundle use -c /path/to/ca-bundle.pem if default paths are unavailable.
 
+BSD archives are specific to the named BSD version and CPU. They dynamically
+link the base OS curses and TLS libraries; see dependencies.txt in the archive.
+OpenBSD uses LibreSSL. No pkg/pkgsrc runtime libraries should be needed. Use the
+matching BSD release, and provide a CA bundle with -c when necessary.
+
+The Linux x86 archive targets i686-class hardware, not an original Intel 80386.
+Linux ppc64le and FreeBSD powerpc64 differ in byte order (little vs big endian).
+Neither package targets 32-bit PowerPC or legacy Mac OS X.
+
 Example (quote the channel name):
   ./posirc -s irc.example.net -p 6697 -n yournick -j '#channel'
 
@@ -28,4 +37,5 @@ by installing a newer POSIRC release, not by upgrading system shared libraries.
 
 Tests run natively on x86-64, ARM64 and macOS runners; other Linux targets run
 under QEMU or host CPU compatibility mode as indicated in BUILD-INFO.txt.
+BSD targets execute inside full-system QEMU VMs.
 Emulation tests are not a claim of testing on every physical device or kernel.

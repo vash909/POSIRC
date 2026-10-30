@@ -32,8 +32,11 @@ The release pipeline builds and executes the full test suite for these targets:
 
 | System | CPU targets | Package |
 | --- | --- | --- |
-| Linux | x86-64, x86, ARM64, ARMv7, ARMv6, RISC-V 64, ppc64le, s390x | Static musl executable with OpenSSL and ncurses embedded |
+| Linux | x86-64, x86 (i686), ARM64, ARMv7, ARMv6, RISC-V 64, ppc64le, s390x | Static musl executable with OpenSSL and ncurses embedded |
 | macOS 15+ | Apple Silicon / ARM64, Intel / x86-64 | OpenSSL and ncurses embedded; system Apple libraries remain dynamic |
+| FreeBSD 14.4 | x86-64, ARM64, RISC-V 64, PowerPC 64 big-endian | Dynamic base-system libraries |
+| OpenBSD 7.9 | x86-64, ARM64 | Dynamic base-system libraries, including LibreSSL |
+| NetBSD 10.1 | x86-64, ARM64, SPARC64 | Dynamic base-system libraries |
 
 Linux x86-64/ARM64 and both macOS targets use native runners; Linux x86 uses
 compatibility mode and the remaining Linux targets execute under QEMU. Emulation
@@ -42,6 +45,13 @@ require glibc or separately installed OpenSSL/ncurses shared libraries, but stil
 need CA certificates and terminal descriptions. macOS binaries are ad-hoc signed,
 not Apple notarized; use `-c` for a CA bundle if the default location is unavailable.
 
+BSD targets build and run tests in full-system QEMU VMs. Download the package for
+your exact BSD release and CPU; Linux binaries are not BSD binaries. BSD packages
+use the OS's base curses/TLS libraries, with runtime dependencies listed in each
+archive. The Linux `x86` package targets i686-class CPUs, not an original 80386.
+`ppc64le` is little-endian PowerPC 64; FreeBSD `powerpc64` is big-endian. These do
+not imply support for 32-bit PowerPC or classic Mac OS X.
+
 Download the matching `.tar.gz`, extract it, and run `./posirc --version`.
 `SHA256SUMS`, dependency versions and third-party notices accompany the binaries.
 Static dependencies are updated by installing a new POSIRC release. See the
@@ -49,7 +59,7 @@ Static dependencies are updated by installing a new POSIRC release. See the
 [beta release notes](docs/releases/v0.3.0-beta.1.md).
 
 The [release workflow](.github/workflows/release.yml) can run without publication
-(`workflow_dispatch`, `publish=false`) or publish a prerelease after **all ten
+(`workflow_dispatch`, `publish=false`) or publish a prerelease after **all nineteen
 build/test jobs pass** (`publish=true` or a matching beta tag). It packages the
 exact tested executables and matching source, uploads all assets as a draft, then
 publishes. The container image and actions are pinned; package versions are

@@ -92,9 +92,105 @@ jobs:
           compression-level: 0
           retention-days: 14
 
+  freebsd:
+    name: FreeBSD ${{ matrix.arch }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64, riscv64, powerpc64]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Build and test in FreeBSD VM
+        uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1
+        env:
+          RELEASE_OS: freebsd
+          RELEASE_ARCH: ${{ matrix.arch }}
+          RELEASE_TARGET: freebsd14.4-${{ matrix.arch }}
+        with:
+          release: '14.4'
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET
+          run: sh scripts/release-bsd.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: posirc-freebsd-${{ matrix.arch }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  openbsd:
+    name: OpenBSD ${{ matrix.arch }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Build and test in OpenBSD VM
+        uses: vmactions/openbsd-vm@f1ca8bc8ecc5b6ef7218e5b914836e067e1546d3 # v1
+        env:
+          RELEASE_OS: openbsd
+          RELEASE_ARCH: ${{ matrix.arch }}
+          RELEASE_TARGET: openbsd7.9-${{ matrix.arch }}
+        with:
+          release: '7.9'
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET
+          run: sh scripts/release-bsd.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: posirc-openbsd-${{ matrix.arch }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  netbsd:
+    name: NetBSD ${{ matrix.arch }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64, sparc64]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Build and test in NetBSD VM
+        uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1
+        env:
+          RELEASE_OS: netbsd
+          RELEASE_ARCH: ${{ matrix.arch }}
+          RELEASE_TARGET: netbsd10.1-${{ matrix.arch }}
+        with:
+          release: '10.1'
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET
+          run: sh scripts/release-bsd.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: posirc-netbsd-${{ matrix.arch }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
   publish:
     name: Publish complete beta
-    needs: [linux, macos]
+    needs: [linux, macos, freebsd, openbsd, netbsd]
     if: startsWith(github.ref, 'refs/tags/') || inputs.publish
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -119,7 +215,7 @@ jobs:
           tag="v$version"
           case "$version" in *-beta.[0-9]*) ;; *) exit 1 ;; esac
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then test "$GITHUB_REF_NAME" = "$tag"; fi
-          test "$(find dist -name '*.tar.gz' | wc -l)" -eq 10
+          test "$(find dist -name '*.tar.gz' | wc -l)" -eq 19
           for archive in dist/*.tar.gz; do
             tar -tzf "$archive" | grep -q '/BUILD-INFO.txt$'
             tar -xOzf "$archive" --wildcards '*/BUILD-INFO.txt' | grep -Fx "Source commit: $GITHUB_SHA"
