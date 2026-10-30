@@ -206,10 +206,11 @@ static void serve_pipe(SSL *tls, enum scenario scenario, int ready_fd)
 
 static void serve(int listener, SSL_CTX *context, enum scenario scenario, int ready_fd)
 {
-    int socket_fd = accept(listener, NULL, NULL);
+    int socket_fd;
     SSL *tls;
     int accepted;
     (void)alarm(10);
+    socket_fd = accept(listener, NULL, NULL);
     REQUIRE(socket_fd >= 0);
     (void)close(listener);
     tls = SSL_new(context);
@@ -581,9 +582,13 @@ int main(void)
     app_scenario(dns_only, server_key, ca_path, REJECT,
                  X509_verify_cert_error_string(X509_V_ERR_IP_ADDRESS_MISMATCH), TLS1_2_VERSION, "127.0.0.1");
     puts("OK: untrusted CA, wrong hostname/IP and expired certificate rejected");
-    app_scenario(valid, server_key, ca_path, MALFORMED, "Invalid/oversized", TLS1_2_VERSION, "localhost");
-    app_scenario(valid, server_key, ca_path, ABRUPT, "TLS read", TLS1_2_VERSION, "localhost");
-    app_scenario(valid, server_key, ca_path, DROP_QUEUED, "test drop", TLS1_2_VERSION, "localhost");
+    /* These scenarios target the IPv4 fixture, not address fallback. Using
+     * localhost can select an unbound IPv6 endpoint at the same ephemeral
+     * port (including a TCP self-connect on systems that reuse that port).
+     * The CHAT and certificate cases above still exercise hostname lookup. */
+    app_scenario(valid, server_key, ca_path, MALFORMED, "Invalid/oversized", TLS1_2_VERSION, "127.0.0.1");
+    app_scenario(valid, server_key, ca_path, ABRUPT, "TLS read", TLS1_2_VERSION, "127.0.0.1");
+    app_scenario(valid, server_key, ca_path, DROP_QUEUED, "test drop", TLS1_2_VERSION, "127.0.0.1");
     queue_scenario(valid, server_key, ca_path);
     puts("OK: malformed frames, abrupt close, IP verification, bounded queue and wraparound");
     pipe_scenarios(valid, server_key, ca_path, other_path);
