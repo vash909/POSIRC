@@ -396,6 +396,7 @@ display-only: the retained history text stays available for a wider terminal.
 | PageUp / PageDown | Scroll the current history |
 | F7 / F8 | Scroll the channel user list |
 | Left / Right, Home / End | Move within the current draft |
+| Up | Recall the last nonempty submitted message or command into the current draft |
 | Backspace / Delete | Delete the preceding / following Unicode scalar |
 | Enter | Submit; return to live history |
 | Ctrl-U | Clear the draft |
@@ -403,6 +404,13 @@ display-only: the retained history text stays available for a wider terminal.
 | Ctrl-K | Insert IRC color control, followed by `04`, `04,02`, etc. |
 | Ctrl-B / Ctrl-T / Ctrl-_ | Toggle bold / italic / underline |
 | Ctrl-R / Ctrl-O | Toggle reverse / reset formatting |
+
+Up recalls one entry shared by all buffers and puts the cursor at its end.
+It replaces the current draft; you can edit it before pressing Enter. Repeated
+Up recalls the same entry, and empty Enter leaves the saved entry intact without
+resending it. The UI keeps one fixed 1,024-byte slot, reusing the space previously
+used for the temporary submission copy: no heap allocation, growing command
+history, per-buffer recall storage or disk writes are added.
 
 Draft formatting controls are shown as caret notation; they are sent as IRC
 control bytes. For example, Ctrl-K then `04hello` sends red text. Received colors

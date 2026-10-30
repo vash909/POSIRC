@@ -645,6 +645,7 @@ void posirc_app_submit(struct posirc_app *app, const char *line)
         append_line(app, "/clear | /help       Clear transcript or show local commands");
         append_line(app, "/buffer name|number | /buffers | /users | /close");
         append_line(app, "Tab/Shift-Tab or F2/F3: buffers | PgUp/PgDn: history | F7/F8: users");
+        append_line(app, "Up: recall the last submitted message or command (one shared entry)");
         append_line(app, "Ctrl-K: color | Ctrl-B: bold | Ctrl-O: reset | Ctrl-T: italic");
         append_line(app, "Ctrl-_: underline | Ctrl-R: reverse | Ctrl-U: clear | Ctrl-L: refresh");
     } else if (strcmp(command, "/buffers") == 0) {

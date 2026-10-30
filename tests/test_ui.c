@@ -251,11 +251,59 @@ static void render_case(const char *terminal, int expect_color)
     (void)fclose(output); (void)fclose(input);
 }
 
+static void input_history(void)
+{
+    struct posirc_app app;
+    struct posirc_buffer *buffer;
+    char last_input[POSIRC_TEXT_CAPACITY] = "";
+    size_t count;
+    posirc_app_init(&app);
+    buffer = posirc_app_current(&app);
+    (void)snprintf(buffer->draft, sizeof buffer->draft, "unfinished");
+    buffer->cursor = 3;
+    recall_input(buffer, last_input);
+    CHECK(strcmp(buffer->draft, "unfinished") == 0 && buffer->cursor == 3);
+    (void)snprintf(buffer->draft, sizeof buffer->draft, "/nick tester");
+    submit_input(&app, last_input);
+    CHECK(strcmp(app.nick, "tester") == 0 && strcmp(last_input, "/nick tester") == 0);
+    CHECK(buffer->draft[0] == '\0' && buffer->cursor == 0);
+    recall_input(buffer, last_input);
+    CHECK(strcmp(buffer->draft, "/nick tester") == 0 && buffer->cursor == strlen(buffer->draft));
+    text_delete(buffer->draft, &buffer->cursor, 1);
+    CHECK(strcmp(last_input, "/nick tester") == 0); /* Editing the recalled line leaves the slot alone. */
+    (void)snprintf(buffer->draft, sizeof buffer->draft, "/query friend");
+    submit_input(&app, last_input);
+    buffer = posirc_app_current(&app);
+    CHECK(strcmp(buffer->name, "friend") == 0 && buffer->draft[0] == '\0');
+    recall_input(buffer, last_input);
+    CHECK(strcmp(buffer->draft, "/query friend") == 0);
+    (void)snprintf(buffer->draft, sizeof buffer->draft, "caffè 日 😀");
+    submit_input(&app, last_input);
+    CHECK(strcmp(last_input, "caffè 日 😀") == 0);
+    count = buffer->history_count;
+    submit_input(&app, last_input); /* Empty Enter must not resend the saved entry. */
+    CHECK(buffer->history_count == count && strcmp(last_input, "caffè 日 😀") == 0);
+    posirc_app_select(&app, 0);
+    buffer = posirc_app_current(&app);
+    recall_input(buffer, last_input);
+    CHECK(strcmp(buffer->draft, "caffè 日 😀") == 0 && buffer->cursor == strlen(last_input));
+    recall_input(buffer, last_input);
+    CHECK(strcmp(buffer->draft, "caffè 日 😀") == 0); /* Up has no older entries. */
+    memset(buffer->draft, 'x', sizeof buffer->draft - 1);
+    buffer->draft[sizeof buffer->draft - 1] = '\0';
+    submit_input(&app, last_input);
+    recall_input(buffer, last_input);
+    CHECK(strlen(last_input) == POSIRC_TEXT_CAPACITY - 1 && strcmp(buffer->draft, last_input) == 0);
+    CHECK(buffer->cursor == POSIRC_TEXT_CAPACITY - 1);
+    posirc_app_destroy(&app);
+}
+
 int main(void)
 {
     (void)alarm(60);
     CHECK(setlocale(LC_ALL, "C.UTF-8") != NULL || setlocale(LC_ALL, "en_US.UTF-8") != NULL);
     CHECK(setenv("LINES", "24", 1) == 0 && setenv("COLUMNS", "120", 1) == 0);
+    input_history();
     render_case("xterm-256color", 1);
     render_case("vt100", 0);
     if (failures) return EXIT_FAILURE;

@@ -392,10 +392,29 @@ static void draw(struct posirc_app *app, struct ui_colors *colors, int rows, int
     (void)refresh();
 }
 
+static void recall_input(struct posirc_buffer *buffer, const char *last_input)
+{
+    if (*last_input == '\0') return;
+    (void)snprintf(buffer->draft, sizeof buffer->draft, "%s", last_input);
+    buffer->cursor = strlen(buffer->draft);
+}
+
+static void submit_input(struct posirc_app *app, char last_input[POSIRC_TEXT_CAPACITY])
+{
+    struct posirc_buffer *buffer = posirc_app_current(app);
+    int nonempty = buffer->draft[0] != '\0';
+    if (nonempty) (void)snprintf(last_input, POSIRC_TEXT_CAPACITY, "%s", buffer->draft);
+    buffer->draft[0] = '\0';
+    buffer->cursor = buffer->scroll = buffer->scroll_row = 0;
+    if (nonempty) posirc_app_submit(app, last_input);
+}
+
 int posirc_ui_run(struct posirc_app *app, const volatile sig_atomic_t *stop_requested)
 {
     struct ui_colors colors;
     struct utf8_input input = {{0}, 0, 0};
+    /* One shared slot replaces the former temporary submission copy. */
+    char last_input[POSIRC_TEXT_CAPACITY] = "";
     int rows, columns, old_rows = -1, old_columns = -1, dirty = 1;
     unsigned long revision = app->revision;
     if (initscr() == NULL) { fputs("POSIRC: cannot initialize curses.\n", stderr); return -1; }
@@ -439,6 +458,7 @@ int posirc_ui_run(struct posirc_app *app, const volatile sig_atomic_t *stop_requ
             size_t page = rows > 4 ? (size_t)(rows - 4) : 1;
             if (key == KEY_F(2) || key == KEY_BTAB) posirc_app_cycle(app, -1);
             else if (key == KEY_F(3)) posirc_app_cycle(app, 1);
+            else if (key == KEY_UP) recall_input(buffer, last_input);
             else if (key == KEY_LEFT) buffer->cursor = utf8_previous(buffer->draft, buffer->cursor);
             else if (key == KEY_RIGHT) buffer->cursor += utf8_decode(buffer->draft + buffer->cursor, &ignored);
             else if (key == KEY_HOME) buffer->cursor = 0;
@@ -456,10 +476,7 @@ int posirc_ui_run(struct posirc_app *app, const volatile sig_atomic_t *stop_requ
         }
         if (kind == OK) {
             if (key == '\n' || key == '\r') {
-                char submitted[POSIRC_TEXT_CAPACITY];
-                (void)snprintf(submitted, sizeof submitted, "%s", buffer->draft);
-                buffer->draft[0] = '\0'; buffer->cursor = buffer->scroll = buffer->scroll_row = 0;
-                posirc_app_submit(app, submitted);
+                submit_input(app, last_input);
             } else if (key == '\t' || key == 14) posirc_app_cycle(app, 1);
             else if (key == 16) posirc_app_cycle(app, -1);
             else if (key == 8 || key == 127) text_delete(buffer->draft, &buffer->cursor, 1);
