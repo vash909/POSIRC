@@ -333,6 +333,7 @@ static void app_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file,
                          enum scenario scenario, const char *expected, int version, const char *host)
 {
     char port[16];
+    fprintf(stderr, "TLS scenario %d, protocol %d, host %s\n", (int)scenario, version, host);
     pid_t child = start_server(cert, key, scenario, port, sizeof port, version, -1);
     struct posirc_app app;
     time_t deadline = time(NULL) + 8;
@@ -387,6 +388,13 @@ static void app_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file,
         CHECK(history_has(&app, "certificate verified"));
     } else {
         CHECK(!app.registered);
+        if (!history_has(&app, expected)) {
+            size_t slot, index;
+            fprintf(stderr, "Expected diagnostic: %s\n", expected);
+            for (slot = 0; slot < POSIRC_BUFFER_CAPACITY; ++slot)
+                for (index = 0; index < app.buffers[slot].history_count; ++index)
+                    fprintf(stderr, "History: %s\n", buffer_line(&app.buffers[slot], index));
+        }
         CHECK(history_has(&app, expected));
         if (scenario == REJECT)
             CHECK(!history_has(&app, "certificate verified"));
@@ -457,6 +465,7 @@ static void pipe_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file,
     pid_t server, client;
     int status, broken[2] = {-1, -1}, incoming[2] = {-1, -1}, ready[2] = {-1, -1};
     size_t count;
+    fprintf(stderr, "Pipe scenario %d\n", (int)scenario);
     REQUIRE(source != NULL && output != NULL && errors != NULL);
     REQUIRE(fwrite(input, 1, size, source) == size);
     rewind(source);
@@ -548,6 +557,7 @@ int main(void)
     X509 *ca, *valid, *wrong_name, *expired, *other_ca, *dns_only;
     char ca_path[] = "/tmp/posirc-test-ca-XXXXXX";
     char other_path[] = "/tmp/posirc-test-other-XXXXXX";
+    (void)alarm(120);
     (void)signal(SIGPIPE, SIG_IGN);
     ca_key = new_key(); server_key = new_key(); other_key = new_key();
     ca = certificate(ca_key, NULL, ca_key, "POSIRC test CA", NULL, 0);
@@ -564,9 +574,12 @@ int main(void)
     puts("OK: TLS 1.3 IRC session");
 #endif
     app_scenario(valid, server_key, other_path, REJECT, "TLS handshake", TLS1_2_VERSION, "localhost");
-    app_scenario(wrong_name, server_key, ca_path, REJECT, "hostname mismatch", TLS1_2_VERSION, "localhost");
-    app_scenario(expired, server_key, ca_path, REJECT, "expired", TLS1_2_VERSION, "localhost");
-    app_scenario(dns_only, server_key, ca_path, REJECT, "IP address mismatch", TLS1_2_VERSION, "127.0.0.1");
+    app_scenario(wrong_name, server_key, ca_path, REJECT,
+                 X509_verify_cert_error_string(X509_V_ERR_HOSTNAME_MISMATCH), TLS1_2_VERSION, "localhost");
+    app_scenario(expired, server_key, ca_path, REJECT,
+                 X509_verify_cert_error_string(X509_V_ERR_CERT_HAS_EXPIRED), TLS1_2_VERSION, "localhost");
+    app_scenario(dns_only, server_key, ca_path, REJECT,
+                 X509_verify_cert_error_string(X509_V_ERR_IP_ADDRESS_MISMATCH), TLS1_2_VERSION, "127.0.0.1");
     puts("OK: untrusted CA, wrong hostname/IP and expired certificate rejected");
     app_scenario(valid, server_key, ca_path, MALFORMED, "Invalid/oversized", TLS1_2_VERSION, "localhost");
     app_scenario(valid, server_key, ca_path, ABRUPT, "TLS read", TLS1_2_VERSION, "localhost");

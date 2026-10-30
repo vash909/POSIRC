@@ -48,9 +48,10 @@ not Apple notarized; use `-c` for a CA bundle if the default location is unavail
 BSD targets build and run tests in full-system QEMU VMs. Download the package for
 your exact BSD release and CPU; Linux binaries are not BSD binaries. BSD packages
 use the OS's base curses/TLS libraries, with runtime dependencies listed in each
-archive. The Linux `x86` package targets i686-class CPUs, not an original 80386.
+archive. The Linux `x86` package targets i686-class CPUs with CMOV and SSE2, not an original 80386.
 `ppc64le` is little-endian PowerPC 64; FreeBSD `powerpc64` is big-endian. These do
-not imply support for 32-bit PowerPC or classic Mac OS X.
+not imply support for 32-bit PowerPC or classic Mac OS X. Linux CPU baselines
+follow the [Alpine architecture requirements](https://wiki.alpinelinux.org/wiki/Architecture).
 
 Download the matching `.tar.gz`, extract it, and run `./posirc --version`.
 `SHA256SUMS`, dependency versions and third-party notices accompany the binaries.
@@ -673,8 +674,10 @@ Coverage includes:
 GitHub Actions runs the build, unit, curses and TLS integration tests on Linux
 with GCC and Clang, and on macOS with Clang and Homebrew dependencies.
 
-The source targets POSIX.1-2001 with X/Open Curses and OpenSSL. BSD,
-other Unix platforms and other curses implementations have not been tested.
+The source targets POSIX.1-2001 with X/Open Curses and OpenSSL-compatible TLS.
+The release matrix also exercises FreeBSD, OpenBSD (LibreSSL) and NetBSD in
+QEMU VMs; see [Beta downloads](#beta-downloads) for exact OS/CPU targets. Other
+Unix platforms and curses implementations remain unverified.
 Only IPv4 loopback transport has been exercised by the current integration
 suite; IPv6 address handling is implemented but still needs an IPv6 test host.
 

@@ -37,6 +37,7 @@ static void render_case(const char *terminal, int expect_color)
     int text_column = 21 + (int)strlen("[#room] <alice> ");
     CHECK(output != NULL && input != NULL);
     if (output == NULL || input == NULL) exit(EXIT_FAILURE);
+    fprintf(stderr, "Testing curses terminal: %s\n", terminal);
     /* NetBSD's X/Open curses declaration takes a mutable terminal name. */
     (void)snprintf(terminal_name, sizeof terminal_name, "%s", terminal);
     screen = newterm(terminal_name, output, input);
@@ -72,6 +73,7 @@ static void render_case(const char *terminal, int expect_color)
 
 int main(void)
 {
+    (void)alarm(60);
     CHECK(setlocale(LC_ALL, "C.UTF-8") != NULL || setlocale(LC_ALL, "en_US.UTF-8") != NULL);
     CHECK(setenv("LINES", "24", 1) == 0 && setenv("COLUMNS", "120", 1) == 0);
     render_case("xterm-256color", 1);

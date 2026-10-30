@@ -20,7 +20,7 @@ link the base OS curses and TLS libraries; see dependencies.txt in the archive.
 OpenBSD uses LibreSSL. No pkg/pkgsrc runtime libraries should be needed. Use the
 matching BSD release, and provide a CA bundle with -c when necessary.
 
-The Linux x86 archive targets i686-class hardware, not an original Intel 80386.
+The Linux x86 archive targets i686-class hardware with CMOV and SSE2, not an original Intel 80386.
 Linux ppc64le and FreeBSD powerpc64 differ in byte order (little vs big endian).
 Neither package targets 32-bit PowerPC or legacy Mac OS X.
 
