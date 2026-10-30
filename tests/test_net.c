@@ -134,7 +134,7 @@ enum scenario { CHAT, REJECT, QUEUE, MALFORMED, ABRUPT, DROP_QUEUED,
                 PIPE_SEND, PIPE_EMPTY, PIPE_INVALID, PIPE_OUTPUT, PIPE_DENIED,
                 PIPE_NICK, PIPE_LIMIT, PIPE_SEND_DENIED, PIPE_BROKEN_OUTPUT, PIPE_FRAGMENT, PIPE_LISTEN };
 
-static void serve_pipe(SSL *tls, enum scenario scenario)
+static void serve_pipe(SSL *tls, enum scenario scenario, int ready_fd)
 {
     char byte, expected[IRC_WIRE_CAPACITY + 1];
     size_t index;
@@ -162,6 +162,8 @@ static void serve_pipe(SSL *tls, enum scenario scenario)
     if (scenario == PIPE_FRAGMENT) {
         server_write(tls, "PING :while-reading\r\n");
         expect_line(tls, "PONG :while-reading\r\n");
+        REQUIRE(write(ready_fd, "1", 1) == 1);
+        (void)close(ready_fd);
         expect_line(tls, "PRIVMSG #room :caffè\r\n");
     } else if (scenario == PIPE_SEND) {
         expect_line(tls, "PRIVMSG #room :/quit\r\n");
@@ -201,7 +203,7 @@ static void serve_pipe(SSL *tls, enum scenario scenario)
     expect_line(tls, "QUIT :Leaving POSIRC\r\n");
 }
 
-static void serve(int listener, SSL_CTX *context, enum scenario scenario)
+static void serve(int listener, SSL_CTX *context, enum scenario scenario, int ready_fd)
 {
     int socket_fd = accept(listener, NULL, NULL);
     SSL *tls;
@@ -222,7 +224,7 @@ static void serve(int listener, SSL_CTX *context, enum scenario scenario)
     } else {
         REQUIRE(accepted == 1);
         if (scenario >= PIPE_SEND) {
-            serve_pipe(tls, scenario);
+            serve_pipe(tls, scenario, ready_fd);
         } else if (scenario == QUEUE) {
             size_t index;
             char expected[IRC_WIRE_CAPACITY + 1];
@@ -277,7 +279,7 @@ static void serve(int listener, SSL_CTX *context, enum scenario scenario)
 }
 
 static pid_t start_server(X509 *cert, EVP_PKEY *key, enum scenario scenario,
-                          char *port, size_t capacity, int version)
+                          char *port, size_t capacity, int version, int ready_fd)
 {
     struct sockaddr_in address;
     socklen_t length = sizeof address;
@@ -301,7 +303,7 @@ static pid_t start_server(X509 *cert, EVP_PKEY *key, enum scenario scenario,
     child = fork();
     REQUIRE(child >= 0);
     if (child == 0)
-        serve(listener, context, scenario);
+        serve(listener, context, scenario, ready_fd);
     (void)close(listener);
     SSL_CTX_free(context);
     return child;
@@ -330,7 +332,7 @@ static void app_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file,
                          enum scenario scenario, const char *expected, int version, const char *host)
 {
     char port[16];
-    pid_t child = start_server(cert, key, scenario, port, sizeof port, version);
+    pid_t child = start_server(cert, key, scenario, port, sizeof port, version, -1);
     struct posirc_app app;
     time_t deadline = time(NULL) + 8;
     int stage = 0;
@@ -411,7 +413,7 @@ static void queue_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file)
 {
     char port[16], line[IRC_WIRE_CAPACITY];
     struct queue_test test = {NULL, 0, 0, 0};
-    pid_t child = start_server(cert, key, QUEUE, port, sizeof port, TLS1_2_VERSION);
+    pid_t child = start_server(cert, key, QUEUE, port, sizeof port, TLS1_2_VERSION, -1);
     time_t deadline = time(NULL) + 8;
     test.net = net_create(ca_file, queue_event, &test);
     REQUIRE(test.net != NULL);
@@ -452,12 +454,14 @@ static void pipe_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file,
     char port[16], text[4096];
     FILE *source = tmpfile(), *output = tmpfile(), *errors = tmpfile();
     pid_t server, client;
-    int status, broken[2] = {-1, -1}, incoming[2] = {-1, -1};
+    int status, broken[2] = {-1, -1}, incoming[2] = {-1, -1}, ready[2] = {-1, -1};
     size_t count;
     REQUIRE(source != NULL && output != NULL && errors != NULL);
     REQUIRE(fwrite(input, 1, size, source) == size);
     rewind(source);
-    server = start_server(cert, key, scenario, port, sizeof port, TLS1_2_VERSION);
+    if (scenario == PIPE_FRAGMENT) REQUIRE(pipe(ready) == 0);
+    server = start_server(cert, key, scenario, port, sizeof port, TLS1_2_VERSION, ready[1]);
+    if (ready[1] >= 0) (void)close(ready[1]);
     if (scenario == PIPE_BROKEN_OUTPUT) {
         REQUIRE(pipe(broken) == 0);
         (void)close(broken[0]); /* No reader: the client's stdout must report EPIPE. */
@@ -467,6 +471,7 @@ static void pipe_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file,
     REQUIRE(client >= 0);
     if (client == 0) {
         (void)alarm(8);
+        if (ready[0] >= 0) (void)close(ready[0]);
         REQUIRE(dup2(incoming[0] >= 0 ? incoming[0] : fileno(source), STDIN_FILENO) >= 0);
         if (incoming[0] >= 0) { (void)close(incoming[0]); (void)close(incoming[1]); }
         REQUIRE(dup2(broken[1] >= 0 ? broken[1] : fileno(output), STDOUT_FILENO) >= 0);
@@ -482,9 +487,12 @@ static void pipe_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file,
     }
     if (broken[1] >= 0) (void)close(broken[1]);
     if (incoming[0] >= 0) {
+        char acknowledged;
         (void)close(incoming[0]);
         REQUIRE(write(incoming[1], "caff\303", 5) == 5);
-        pause_ms(300);
+        /* Complete stdin only after PONG, independent of TLS/emulation speed. */
+        REQUIRE(read(ready[0], &acknowledged, 1) == 1);
+        (void)close(ready[0]);
         REQUIRE(write(incoming[1], "\250\n", 2) == 2);
         (void)close(incoming[1]);
     }

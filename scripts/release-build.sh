@@ -24,7 +24,9 @@ linux)
     if readelf -l posirc | grep -q INTERP; then exit 1; fi
     if readelf -d posirc | grep -q NEEDED; then exit 1; fi
     strip posirc
-    musl_version=$(apk info -v musl | sed -n 's/^musl-\(.*\)-r[0-9]*$/\1/p' | head -1)
+    apk info -v > "$stage/packages.txt"
+    musl_version=$(sed -n 's/^musl-\(.*\)-r[0-9]*$/\1/p' "$stage/packages.txt")
+    test -n "$musl_version"
     curl --fail --location --retry 3 \
         "https://git.musl-libc.org/cgit/musl/plain/COPYRIGHT?h=v$musl_version" \
         -o "$stage/licenses/musl-COPYRIGHT"
@@ -34,7 +36,6 @@ linux)
             "https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-$gcc_version/$license" \
             -o "$stage/licenses/gcc-$license"
     done
-    apk info -v > "$stage/packages.txt"
     ;;
 macos)
     test "$(uname -m)" = "$RELEASE_ARCH"
