@@ -1,0 +1,179 @@
+{
+  "date": "2026-10-30",
+  "platform": "Linux-7.3.0-4-cachyos-x86_64-with-glibc2.44",
+  "cpu": "AMD Ryzen 7 5800X 8-Core Processor",
+  "compiler": "cc (GCC) 16.2.1 20260810",
+  "openssl": "OpenSSL 3.6.5 29 Sep 2026 (Library: OpenSSL 3.6.5 29 Sep 2026)",
+  "source_revision": "73930dd4347f49851fc07e97316d76bd98af89c7",
+  "binary_bytes": 78576,
+  "binary_sha256": "265f6d827e030b18200e5d1fcfce34faa1d9e7d0d5ab1fb8144c961804105e67",
+  "clock_ticks_per_second": 100,
+  "terminal": "xterm-256color, 120x40, C.UTF-8",
+  "summaries": [
+    {
+      "run": 1,
+      "phase": "Offline idle",
+      "duration_s": 5.000373475999368,
+      "messages": 0,
+      "messages_per_s": 0.0,
+      "rss_mib": 5.87890625,
+      "pss_mib": 2.00556640625,
+      "peak_rss_mib": 5.87890625,
+      "cpu_pct": 0.0
+    },
+    {
+      "run": 1,
+      "phase": "TLS idle",
+      "duration_s": 5.000544766999155,
+      "messages": 0,
+      "messages_per_s": 0.0,
+      "rss_mib": 11.32421875,
+      "pss_mib": 3.2306640625,
+      "peak_rss_mib": 11.32421875,
+      "cpu_pct": 0.0
+    },
+    {
+      "run": 1,
+      "phase": "1 channel / 1000 msg/s",
+      "duration_s": 10.000707973000317,
+      "messages": 10000,
+      "messages_per_s": 999.9292077118712,
+      "rss_mib": 11.38984375,
+      "pss_mib": 3.298046875,
+      "peak_rss_mib": 11.390625,
+      "cpu_pct": 2.899794702364426
+    },
+    {
+      "run": 1,
+      "phase": "20 channels / 1000 msg/s",
+      "duration_s": 10.000715523001418,
+      "messages": 10000,
+      "messages_per_s": 999.9284528192236,
+      "rss_mib": 13.99609375,
+      "pss_mib": 6.00470703125,
+      "peak_rss_mib": 13.99609375,
+      "cpu_pct": 3.099778203739591
+    },
+    {
+      "run": 1,
+      "phase": "20 channels / idle",
+      "duration_s": 5.000783245001003,
+      "messages": 0,
+      "messages_per_s": 0.0,
+      "rss_mib": 13.99609375,
+      "pss_mib": 6.0058984375,
+      "peak_rss_mib": 13.99609375,
+      "cpu_pct": 0.0
+    },
+    {
+      "run": 2,
+      "phase": "Offline idle",
+      "duration_s": 5.000347074999809,
+      "messages": 0,
+      "messages_per_s": 0.0,
+      "rss_mib": 5.921875,
+      "pss_mib": 2.0263671875,
+      "peak_rss_mib": 5.921875,
+      "cpu_pct": 0.0
+    },
+    {
+      "run": 2,
+      "phase": "TLS idle",
+      "duration_s": 5.000483216001157,
+      "messages": 0,
+      "messages_per_s": 0.0,
+      "rss_mib": 11.2421875,
+      "pss_mib": 3.29677734375,
+      "peak_rss_mib": 11.2421875,
+      "cpu_pct": 0.0
+    },
+    {
+      "run": 2,
+      "phase": "1 channel / 1000 msg/s",
+      "duration_s": 10.00052469700131,
+      "messages": 10000,
+      "messages_per_s": 999.9475330527939,
+      "rss_mib": 11.3078125,
+      "pss_mib": 3.363701171875,
+      "peak_rss_mib": 11.30859375,
+      "cpu_pct": 2.7998530925478233
+    },
+    {
+      "run": 2,
+      "phase": "20 channels / 1000 msg/s",
+      "duration_s": 10.000820203998956,
+      "messages": 10000,
+      "messages_per_s": 999.9179863268987,
+      "rss_mib": 13.9140625,
+      "pss_mib": 5.965166015625,
+      "peak_rss_mib": 13.9140625,
+      "cpu_pct": 2.9997539589806963
+    },
+    {
+      "run": 2,
+      "phase": "20 channels / idle",
+      "duration_s": 5.000632646999293,
+      "messages": 0,
+      "messages_per_s": 0.0,
+      "rss_mib": 13.9140625,
+      "pss_mib": 5.970703125,
+      "peak_rss_mib": 13.9140625,
+      "cpu_pct": 0.0
+    },
+    {
+      "run": 3,
+      "phase": "Offline idle",
+      "duration_s": 5.0002217429992015,
+      "messages": 0,
+      "messages_per_s": 0.0,
+      "rss_mib": 5.89453125,
+      "pss_mib": 2.0380859375,
+      "peak_rss_mib": 5.89453125,
+      "cpu_pct": 0.0
+    },
+    {
+      "run": 3,
+      "phase": "TLS idle",
+      "duration_s": 5.000391804998799,
+      "messages": 0,
+      "messages_per_s": 0.0,
+      "rss_mib": 11.23046875,
+      "pss_mib": 3.3134765625,
+      "peak_rss_mib": 11.23046875,
+      "cpu_pct": 0.0
+    },
+    {
+      "run": 3,
+      "phase": "1 channel / 1000 msg/s",
+      "duration_s": 10.000499940000736,
+      "messages": 10000,
+      "messages_per_s": 999.9500084992014,
+      "rss_mib": 11.29609375,
+      "pss_mib": 3.3791015625,
+      "peak_rss_mib": 11.296875,
+      "cpu_pct": 2.7998600237977644
+    },
+    {
+      "run": 3,
+      "phase": "20 channels / 1000 msg/s",
+      "duration_s": 10.00054844099941,
+      "messages": 10000,
+      "messages_per_s": 999.9451589077694,
+      "rss_mib": 13.90234375,
+      "pss_mib": 5.9853515625,
+      "peak_rss_mib": 13.90234375,
+      "cpu_pct": 2.8998409608325315
+    },
+    {
+      "run": 3,
+      "phase": "20 channels / idle",
+      "duration_s": 5.000899726999705,
+      "messages": 0,
+      "messages_per_s": 0.0,
+      "rss_mib": 13.90234375,
+      "pss_mib": 5.97892578125,
+      "peak_rss_mib": 13.90234375,
+      "cpu_pct": 0.0
+    }
+  ]
+}

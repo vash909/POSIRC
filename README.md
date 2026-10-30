@@ -235,6 +235,85 @@ PONG even before registration completes.
 TLS close-notify is best effort, without waiting for the peer's reply. No
 application data is silently retried after a lost connection.
 
+## Measured resource use
+
+In this workload POSIRC stayed around **11.3 MiB RSS with one active TLS channel**
+and **13.9 MiB with 20 populated channels**, using about **3% of one CPU core**
+while receiving 1,000 messages/s. Offline idle used **5.9 MiB RSS**.
+
+| Workload | RSS (MiB) | PSS (MiB) | CPU (% of one core) |
+| --- | ---: | ---: | ---: |
+| Offline idle | 5.89 | 2.03 | 0.00 |
+| TLS idle | 11.24 | 3.30 | 0.00 |
+| 1 channel / 1000 msg/s | 11.31 | 3.36 | 2.80 |
+| 20 channels / 1000 msg/s | 13.91 | 5.99 | 3.00 |
+| 20 channels / idle | 13.91 | 5.98 | 0.00 |
+
+The largest sampled RSS across these phases was **14.00 MiB**.
+The dynamically linked, unstripped executable was **78,576 bytes**
+(76.7 KiB); that file size does not include shared libraries.
+
+
+![Resident memory and CPU by workload; median and range of three runs](docs/benchmarks/footprint.svg)
+
+![RSS and CPU over time for all three benchmark runs](docs/benchmarks/load.svg)
+
+These are measurements of the **real client process**, including curses rendering,
+IRC handling and OpenSSL, rather than an estimate from executable size. RSS counts
+all resident pages, including shared libraries. PSS apportions shared pages among
+the processes using them; it varies with other running software, including the
+local Python TLS fixture. Neither metric includes the fixture or a terminal
+emulator process. MiB means 1,048,576 bytes.
+
+**Method.** Three fresh processes, each running the same sequence: 5 seconds offline,
+5 seconds connected and idle, 10 seconds receiving 1,000 messages/s in one channel,
+10 seconds receiving 1,000 messages/s spread across 20 channels, then 5 seconds
+idle with those channels retained. Before the 20-channel phase, each channel gets
+200 user records and 256 history lines (4,000 records and 5,120 retained lines in
+total). Message bodies are 400 ASCII bytes. Traffic arrives in batches of 100
+messages every 100 ms over verified loopback TLS. Each traffic phase sends 10,000
+messages; a PING/PONG barrier confirms the client has parsed all preceding frames.
+This measures a sustained offered load, **not maximum throughput** or per-message
+screen-update latency. The channel population and connection steps are excluded
+from the phase averages and shown as gaps in the time plot.
+
+Memory is sampled every 100 ms from Linux `/proc/PID/smaps_rollup`; CPU is the
+change in user + system ticks from `/proc/PID/stat`, divided by elapsed time.
+CPU percentages use one logical core as 100%. Tables show the median of the three
+per-run averages; chart whiskers show their minimum and maximum. The time plot
+shows every RSS sample and CPU averaged over roughly one second. A reported
+0.00% means no CPU ticks recorded in that interval, not literally zero work
+(the clock resolution here is 10 ms). Initial one-second warm-ups are excluded.
+
+**Environment (2026-10-30).** AMD Ryzen 7 5800X, Linux x86_64
+(CachyOS, kernel 7.3.0-4-cachyos), GCC 16.2.1, ncursesw 6.6.20251230 and
+OpenSSL 3.6.5. Built with `make clean && make`, default `-O2`, dynamic linking,
+no sanitizers. The PTY is 120 × 40 with `TERM=xterm-256color` and `LC_ALL=C.UTF-8`;
+its output is continuously drained. A graphical terminal's rendering cost is
+therefore outside these measurements. The host was not isolated; results can
+vary with libraries, allocator, hardware and concurrent activity. This short
+synthetic workload does not establish a worst-case memory bound, long-term leak
+behavior, or a comparison with other clients.
+
+Reproduce on Linux with Python 3 and the `openssl` command available (benchmark
+helpers only; they add no runtime dependency to POSIRC). Local sockets, PTYs and
+access to the child process's `/proc` entries must be permitted:
+
+```sh
+make clean && make
+python3 benchmarks/measure.py --runs 3 --output /tmp/posirc-results
+# Optional chart generation, in a separate environment:
+python3 -m venv /tmp/posirc-plots
+/tmp/posirc-plots/bin/pip install matplotlib==3.11.2
+/tmp/posirc-plots/bin/python benchmarks/plot.py /tmp/posirc-results
+```
+
+The harness generates a temporary certificate trusted explicitly by the client;
+certificate and IP verification remain enabled. It contacts no external server.
+See the committed [raw samples](docs/benchmarks/samples.csv),
+[per-run results and binary/source identifiers](docs/benchmarks/results.json),
+[measurement script](benchmarks/measure.py) and [plot script](benchmarks/plot.py).
+
 ## Source layout
 
 | File | Responsibility |
