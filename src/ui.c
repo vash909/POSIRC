@@ -113,7 +113,11 @@ static void draw_text(struct ui_colors *colors, int row, int column, int width,
     char plain[POSIRC_TEXT_CAPACITY * 2];
     uint32_t codepoint;
     int used = 0, previous_foreground = -2, previous_background = -2;
+    int screen_rows, screen_columns;
     short pair = 0;
+    getmaxyx(stdscr, screen_rows, screen_columns);
+    if (row < 0 || row >= screen_rows || column < 0 || column >= screen_columns) return;
+    if (width > screen_columns - column) width = screen_columns - column;
     if (width <= 0) return;
     if (!formatting) { text_clean(plain, sizeof plain, text, 0); text = plain; }
     text_reader_init(&reader, text);
@@ -143,7 +147,9 @@ static void draw_text(struct ui_colors *colors, int row, int column, int width,
             previous_background = style.background;
         }
         if (setcchar(&character, sequence, style_attributes(&style) | extra, pair, NULL) == OK)
-            (void)mvadd_wch(row, column + used, &character);
+            /* Copy cells without curses' cursor advance/wrap side effects.
+             * Layout, including any wrapping, belongs to this renderer. */
+            (void)mvadd_wchnstr(row, column + used, &character, 1);
         used += cells;
     }
     (void)attrset(A_NORMAL);
@@ -224,7 +230,6 @@ static void draw(struct posirc_app *app, struct ui_colors *colors, int rows, int
             }
             ++ordinal;
         }
-        (void)mvvline(1, left, ACS_VLINE, rows - 3);
     }
     if (right) {
         buffer_users_sort(buffer);
@@ -240,13 +245,15 @@ static void draw(struct posirc_app *app, struct ui_colors *colors, int rows, int
             (void)snprintf(label, sizeof label, "%c%s", symbol, buffer->users[index].nick);
             draw_text(colors, 2 + (int)(index - buffer->user_scroll), columns - right, right - 1, label, A_NORMAL, 0);
         }
-        (void)mvvline(1, columns - right - 1, ACS_VLINE, rows - 3);
     }
     if (buffer->scroll >= buffer->history_count) buffer->scroll = buffer->history_count > 0 ? buffer->history_count - 1 : 0;
     end = buffer->history_count - buffer->scroll;
     first = end > (size_t)body ? end - (size_t)body : 0;
     for (index = first; index < end; ++index)
         draw_text(colors, 2 + (int)(index - first), center, width, buffer_line(buffer, index), A_NORMAL, 1);
+    /* Borders are structural cells: restore them after all pane content. */
+    if (left) (void)mvvline(1, left, ACS_VLINE, rows - 3);
+    if (right) (void)mvvline(1, columns - right - 1, ACS_VLINE, rows - 3);
     (void)snprintf(label, sizeof label, "%s | Tab: buffers | PgUp/Dn: history | F7/F8: users | /help%s",
                    buffer->scroll ? "History" : "Live", app->dropped_lines ? " | memory limit: lines dropped" : "");
     draw_text(colors, rows - 2, 0, columns - 1, label, A_DIM, 0);

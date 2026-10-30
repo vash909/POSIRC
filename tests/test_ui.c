@@ -24,6 +24,50 @@ static void receive(struct posirc_app *app, const char *text)
     CHECK(posirc_app_receive(app, line) == 0);
 }
 
+static void pane_boundaries(struct posirc_app *app, struct ui_colors *colors)
+{
+    const int widths[] = {120, 100, 99, 70, 69, 60, 120};
+    const char *units[] = {"long-text ", "日😀e\314\201", "\002\00304,02colored\017 "};
+    struct posirc_buffer *buffer = posirc_app_current(app);
+    size_t kind, i, used;
+    char line[POSIRC_TEXT_CAPACITY];
+    attr_t attributes;
+    short pair;
+    wchar_t combining;
+    int row, column;
+    /* A full-width write must not move to or damage the following row. */
+    (void)erase();
+    (void)mvaddch(11, 0, 'G');
+    draw_text(colors, 10, 119, 20, "XY", A_NORMAL, 1);
+    getyx(stdscr, row, column);
+    CHECK(row == 10 && column == 119);
+    CHECK(cell(10, 119, &attributes, &pair, &combining) == L'X');
+    CHECK(cell(11, 0, &attributes, &pair, &combining) == L'G');
+    for (kind = 0; kind < sizeof units / sizeof units[0]; ++kind) {
+        size_t length = strlen(units[kind]);
+        for (used = 0; used + length < sizeof line; used += length)
+            memcpy(line + used, units[kind], length);
+        line[used] = '\0';
+        buffer_clear(buffer);
+        CHECK(buffer_append(buffer, line) == 0);
+        (void)snprintf(buffer->topic, sizeof buffer->topic, "%s", line);
+        for (i = 0; i < sizeof widths / sizeof widths[0]; ++i) {
+            int columns = widths[i];
+            draw(app, colors, 12, columns);
+            for (row = 1; row < 10; ++row) {
+                if (columns >= 70)
+                    CHECK((mvinch(row, 20) & (A_CHARTEXT | A_ALTCHARSET)) == (ACS_VLINE & (A_CHARTEXT | A_ALTCHARSET)));
+                if (columns >= 100)
+                    CHECK((mvinch(row, columns - 21) & (A_CHARTEXT | A_ALTCHARSET)) == (ACS_VLINE & (A_CHARTEXT | A_ALTCHARSET)));
+            }
+            if (columns >= 100) {
+                CHECK(cell(1, columns - 20, &attributes, &pair, &combining) == L'U');
+                CHECK(cell(2, columns - 20, &attributes, &pair, &combining) == L'@');
+            }
+        }
+    }
+}
+
 static void render_case(const char *terminal, int expect_color)
 {
     FILE *output = tmpfile(), *input = tmpfile();
@@ -65,6 +109,7 @@ static void render_case(const char *terminal, int expect_color)
     /* Resizing hides sidebars while retaining the conversation. */
     draw(&app, &colors, 12, 60);
     CHECK(cell(1, 0, &attributes, &pair, &combining) == L'T');
+    pane_boundaries(&app, &colors);
     posirc_app_destroy(&app);
     (void)endwin();
     delscreen(screen);

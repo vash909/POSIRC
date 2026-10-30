@@ -352,7 +352,8 @@ automatic replies or additional persistent allocation is needed.
 
 Sidebars hide on narrow terminals (buffers below 70 columns, users below 100).
 The commands `/buffers`, `/buffer` and `/users` remain available. Long transcript
-lines are clipped, not wrapped. A short terminal shows a size notice; ncurses
+lines are clipped, not wrapped. Text is clipped in terminal cells, and sidebar
+separators are restored after pane content. A short terminal shows a size notice; ncurses
 resize handling and terminal restoration are tested.
 
 | Key | Action |
