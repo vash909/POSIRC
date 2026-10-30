@@ -103,8 +103,10 @@ hello everyone
 
 Wait for registration before `/join`. The target switches to the channel after
 the server confirms your JOIN. Ordinary text goes to the target shown in the
-status line. A local `[queued]` echo means the message entered the send queue;
-it does not confirm delivery. Server errors remain visible in the transcript.
+status line. A local `[queued]` echo means the message entered the send queue. The marker
+disappears once the complete frame has been written through TLS; pending echoes
+become `[unsent]` if the connection closes first. Neither state confirms delivery
+to recipients. Server errors remain visible in the transcript.
 
 `-s` connects on startup; without it, POSIRC stays offline until `/connect`.
 `-p` sets the startup port (default 6697); `/connect` takes its own optional port.
@@ -310,8 +312,9 @@ registration has a separate 60-second timeout.
 
 Memory and work are bounded: 64 outgoing IRC frames, 64 buffer slots including
 the server, 256 history lines of up to 1023 bytes per buffer, and 4096 user
-records per channel. Histories and user arrays allocate storage only as needed;
-closed buffers release it. User-list overflow is marked with `+`; buffer limits
+records per channel. Histories and user arrays allocate storage only as needed. History slots reuse
+capacity after wraparound; `/clear` releases their text, and closed buffers
+release their histories and user arrays. User-list overflow is marked with `+`; buffer limits
 are reported in the server buffer. Input drafts hold up to 1023 UTF-8 bytes.
 There is a fixed network receive buffer. Work per network tick is limited so
 server traffic and pasted input do not starve each other. Oversized outgoing
@@ -326,86 +329,253 @@ application data is silently retried after a lost connection.
 
 ## Measured resource use
 
-The measurements below describe the interactive build identified in
-[results.json](docs/benchmarks/results.json), before the pipe modes were added.
-They are a recorded baseline, not measurements of the new streaming modes.
+The following compares **`df16176` before optimization** with the updated client
+on the same machine. Both builds include pipe modes; the end-to-end workload
+exercises the interactive curses client over verified TLS. Numbers are measured,
+not inferred from the executable size. The source hashes and binary hashes are
+recorded with the [current results](docs/benchmarks/results.json) and
+[baseline results](docs/benchmarks/before/results.json).
 
-In this workload POSIRC stayed around **11.3 MiB RSS with one active TLS channel**
-and **13.9 MiB with 20 populated channels**, using about **3% of one CPU core**
-while receiving 1,000 messages/s. Offline idle used **5.9 MiB RSS**.
+| Workload | RSS (MiB) | PSS (MiB) | USS (MiB) | CPU (% of one core) |
+| --- | ---: | ---: | ---: | ---: |
+| Offline idle | 5.88 | 2.01 | 1.73 | 0.00 |
+| TLS idle | 11.33 | 3.31 | 2.46 | 0.00 |
+| 1 channel / 1000 msg/s | 11.40 | 3.38 | 2.53 | 2.70 |
+| 20 channels / 1000 msg/s | 14.09 | 6.08 | 5.22 | 2.90 |
+| 20 channels / idle | 14.09 | 6.07 | 5.22 | 0.00 |
 
-| Workload | RSS (MiB) | PSS (MiB) | CPU (% of one core) |
+Peak sampled RSS: **14.11 MiB**. Executable: **87,192 bytes**, dynamically linked and unstripped; shared libraries are additional.
+
+
+![Current resident memory and CPU by workload](docs/benchmarks/footprint.svg)
+
+![Before and after: CPU and private resident memory](docs/benchmarks/comparison.svg)
+
+| Active workload | CPU before | CPU after | USS before → after |
 | --- | ---: | ---: | ---: |
-| Offline idle | 5.89 | 2.03 | 0.00 |
-| TLS idle | 11.24 | 3.30 | 0.00 |
-| 1 channel / 1000 msg/s | 11.31 | 3.36 | 2.80 |
-| 20 channels / 1000 msg/s | 13.91 | 5.99 | 3.00 |
-| 20 channels / idle | 13.91 | 5.98 | 0.00 |
+| 1 channel / 1000 msg/s | 2.80% | 2.70% | 2.53 → 2.53 MiB |
+| 20 channels / 1000 msg/s | 3.00% | 2.90% | 5.14 → 5.22 MiB |
 
-The largest sampled RSS across these phases was **14.00 MiB**.
-The dynamically linked, unstripped executable was **78,576 bytes**
-(76.7 KiB); that file size does not include shared libraries.
+The full-client CPU changes are small relative to the microbenchmark gains.
+With three short runs and 10 ms accounting ticks, treat them as observations,
+not a guaranteed percentage speedup. Private memory with 20 channels rises
+slightly: retained slot capacity and send-status headers have a cost.
 
 
-![Resident memory and CPU by workload; median and range of three runs](docs/benchmarks/footprint.svg)
+The optimization is deliberately local: printable ASCII is copied in spans,
+and occupied history slots reuse their allocations when the new text fits.
+Unicode validation, control sanitizing, history limits, frame limits, TLS,
+input handling, redraw scheduling and the visible text remain the same.
+The separate fix for [issue #1](https://github.com/vash909/POSIRC/issues/1) makes
+`[queued]` reflect actual transport progress.
 
-![RSS and CPU over time for all three benchmark runs](docs/benchmarks/load.svg)
+### Workload and measurement method
 
-These are measurements of the **real client process**, including curses rendering,
-IRC handling and OpenSSL, rather than an estimate from executable size. RSS counts
-all resident pages, including shared libraries. PSS apportions shared pages among
-the processes using them; it varies with other running software, including the
-local Python TLS fixture. Neither metric includes the fixture or a terminal
-emulator process. MiB means 1,048,576 bytes.
+Each of three fresh processes runs 5 seconds offline, 5 seconds connected and
+idle, 10 seconds receiving 1,000 messages/s in one channel, 10 seconds receiving
+1,000 messages/s across 20 channels, then 5 seconds idle with those channels
+retained. Before the 20-channel phase, each channel receives 200 user records and
+256 history lines: 4,000 records and 5,120 retained lines altogether. Message
+bodies are 400 ASCII bytes, sent in batches of 100 every 100 ms. A PING/PONG
+barrier at each phase boundary confirms parsing of preceding frames. This is
+sustained offered load, not maximum throughput or per-message rendering latency.
 
-**Method.** Three fresh processes, each running the same sequence: 5 seconds offline,
-5 seconds connected and idle, 10 seconds receiving 1,000 messages/s in one channel,
-10 seconds receiving 1,000 messages/s spread across 20 channels, then 5 seconds
-idle with those channels retained. Before the 20-channel phase, each channel gets
-200 user records and 256 history lines (4,000 records and 5,120 retained lines in
-total). Message bodies are 400 ASCII bytes. Traffic arrives in batches of 100
-messages every 100 ms over verified loopback TLS. Each traffic phase sends 10,000
-messages; a PING/PONG barrier confirms the client has parsed all preceding frames.
-This measures a sustained offered load, **not maximum throughput** or per-message
-screen-update latency. The channel population and connection steps are excluded
-from the phase averages and shown as gaps in the time plot.
+The PTY is 120 × 40, `TERM=xterm-256color`, `LC_ALL=C.UTF-8`. Its output is drained
+continuously. The server and PTY reader are outside the measured client process;
+a graphical terminal's rendering cost is not included. One-second startup and
+connection warm-ups, channel population and certificate creation are excluded
+from phase averages. The gaps in the trace mark setup/population, not missing
+zero-load samples.
 
-Memory is sampled every 100 ms from Linux `/proc/PID/smaps_rollup`; CPU is the
-change in user + system ticks from `/proc/PID/stat`, divided by elapsed time.
-CPU percentages use one logical core as 100%. Tables show the median of the three
-per-run averages; chart whiskers show their minimum and maximum. The time plot
-shows every RSS sample and CPU averaged over roughly one second. A reported
-0.00% means no CPU ticks recorded in that interval, not literally zero work
-(the clock resolution here is 10 ms). Initial one-second warm-ups are excluded.
+![All three runs: RSS and CPU over time](docs/benchmarks/load.svg)
 
-**Environment (2026-10-30).** AMD Ryzen 7 5800X, Linux x86_64
-(CachyOS, kernel 7.3.0-4-cachyos), GCC 16.2.1, ncursesw 6.6.20251230 and
-OpenSSL 3.6.5. Built with `make clean && make`, default `-O2`, dynamic linking,
-no sanitizers. The PTY is 120 × 40 with `TERM=xterm-256color` and `LC_ALL=C.UTF-8`;
-its output is continuously drained. A graphical terminal's rendering cost is
-therefore outside these measurements. The host was not isolated; results can
-vary with libraries, allocator, hardware and concurrent activity. This short
-synthetic workload does not establish a worst-case memory bound, long-term leak
-behavior, or a comparison with other clients.
+Memory is sampled every 100 ms. RSS counts resident pages, including shared
+libraries; PSS apportions shared pages between their users; USS here is
+`Private_Clean + Private_Dirty` from `/proc/PID/smaps_rollup`. These are different
+views of the same process, not quantities to add. PSS varies with concurrent
+processes, including the Python fixture that also loads OpenSSL. MiB means
+1,048,576 bytes. See the [Linux proc documentation](https://docs.kernel.org/filesystems/proc.html).
 
-Reproduce on Linux with Python 3 and the `openssl` command available (benchmark
-helpers only; they add no runtime dependency to POSIRC). Local sockets, PTYs and
-access to the child process's `/proc` entries must be permitted:
+CPU is the change in user + system ticks divided by elapsed time, with one
+logical CPU equal to 100%. Tables use the median of three per-run averages;
+whiskers show min–max, not confidence intervals. The trace averages CPU samples
+in groups of ten (approximately one second). A 0.00% idle result means no CPU
+tick was recorded in that window; the accounting resolution is 10 ms. It does
+not mean the process performs no work. Phase-end PINGs can also trigger a final
+redraw charged to the following idle interval.
+
+Environment: AMD Ryzen 7 5800X, CachyOS Linux x86_64, kernel 7.3.0-4-cachyos,
+GCC 16.2.1, ncursesw 6.6.20251230, OpenSSL 3.6.5, on 2026-10-30. Both executables
+use the default `cc -O2` build, dynamic libraries and no sanitizers. Runs were
+sequential on a non-isolated host, without CPU pinning; the reported governor
+was `powersave`. Scheduling, frequency changes and library residency introduce
+noise. Three short runs establish neither long-term leak freedom nor worst-case
+memory, tail latency or superiority over other clients.
+
+### Text and allocator microbenchmarks
+
+These isolate two hot paths without networking or curses. Each measurement runs
+1,000,000 operations using 400-byte inputs; the table shows medians of five
+alternating before/after pairs. CPU time comes from `CLOCK_PROCESS_CPUTIME_ID`.
+The UTF-8 case repeats `é日abc`; the styled case mixes ASCII and IRC formatting.
+The history test first fills all 256 slots, then appends equal-length lines.
+
+| Operation | Before (ns/op) | After (ns/op) | Before / after |
+| --- | ---: | ---: | ---: |
+| Clean printable ASCII | 1179.2 | 100.4 | 11.75× |
+| Clean mixed UTF-8 | 870.2 | 688.3 | 1.26× |
+| Clean IRC-styled text | 1281.9 | 694.3 | 1.85× |
+| Append to full history | 1194.5 | 115.6 | 10.33× |
+
+
+![Isolated text/history CPU cost before and after](docs/benchmarks/core.svg)
+
+GNU linker wrappers count allocation calls made by the client objects. During
+the million measured history appends, the baseline makes **1,000,000 malloc calls
+and 1,000,000 free calls**; the updated code makes **zero malloc/realloc/free
+calls**. Initial filling and final cleanup are outside this count. Growing a
+slot for a longer line still reallocates. Shorter replacements keep that slot's
+capacity until `/clear` or `/close`: this trades some retained heap capacity for
+less allocator work. It does not eliminate allocations throughout the client.
+The microbenchmark speedup is not an end-to-end speedup.
+
+### From C structures down to cache lines
+
+The measured x86_64 ABI has 8-byte pointers and 4 KiB base pages. Sysfs reports
+64-byte cache lines, 32 KiB L1 data and 32 KiB L1 instruction caches, 512 KiB L2
+and 32 MiB L3 for the sampled CPU. These are host properties, not portability
+requirements. Cache capacities alone do not measure hit rates.
+
+| Object / bound | Size on this build | Consequence |
+| --- | ---: | --- |
+| `struct posirc_app` | 277,968 B | Includes all 64 buffer descriptors; excludes pointed-to histories/users and TLS allocations |
+| One `struct posirc_buffer` | 4,320 B | Includes a 2,048 B table of 256 history pointers, drafts and topic |
+| One history header | 16 B | Stores allocation capacity and the pending-send token; text follows in the same allocation |
+| One user record | 140 B | 200 users reserve 256 records through geometric growth: 35 KiB per populated channel |
+| Outgoing queue | 64 × 536 B = 33.5 KiB | Fixed storage for frames, lengths and completion metadata, plus separate queue bookkeeping |
+| Network receive array | 4 KiB | Bounds each TLS application read; IRC framing is incremental |
+| All 64 histories at maximum text size | 16.25 MiB | 64 × 256 × (16-byte header + 1,024-byte string capacity), before allocator overhead |
+| All 63 channel user arrays at maximum | 34.45 MiB | 63 × 4,096 × 140 B, before allocator overhead |
+
+Those last two rows are storage bounds derived from source, **not measured RSS
+ceilings**. Add descriptors, allocator metadata/alignment, stacks, curses,
+OpenSSL, shared mappings and kernel-side socket buffers as appropriate. Demand
+paging also means a reserved address range and resident physical pages differ.
+The 20-channel benchmark is far below the configured maximum user count.
+
+A bare 400-byte string plus NUL and its 16-byte header occupies 417 requested
+bytes, spanning seven or eight 64-byte cache lines depending on alignment;
+allocator rounding is additional. The 5,120 retained lines in this workload
+require 80 KiB of history headers before allocator rounding. The 256-entry
+pointer table spans 32 aligned
+cache lines. The renderer walks a bounded visible portion of the ring, while
+appending advances one slot modulo 256. Keeping an existing slot allocation
+avoids the allocator's bookkeeping on each overwrite and retains its address.
+This can help locality, but no hardware cache-miss reduction is claimed here.
+
+The ASCII path scans bytes in `[0x20, 0x7e]` and copies each contiguous run with
+`memcpy`. It avoids calling the general UTF-8 decoder and encoder for every
+ASCII scalar. Inspection with `objdump -dr --disassemble=text_clean src/text.o`
+shows scalar byte loads/comparisons for that scan and a bulk-copy call on this
+compiler. There is no handwritten SIMD, architecture-specific intrinsic,
+`-march=native`, manual prefetch or cache-line padding. Non-ASCII bytes and
+controls still use the scalar decoder/sanitizer, checked against the previous
+implementation over byte patterns and output-capacity boundaries.
+
+### Syscalls, scheduling and transport
+
+```mermaid
+flowchart LR
+    TCP[Kernel TCP receive buffer] --> TLS[OpenSSL decrypts and verifies records]
+    TLS --> Frame[4 KiB read buffer and IRC framer]
+    Frame --> App[Parse and route]
+    App --> History[256-slot history ring]
+    History --> UI[Curses cell rendering]
+    UI --> PTY[PTY writes]
+    App --> Stream[Pipe mode: sanitized TSV to stdout]
+```
+
+The client uses one event-loop thread. A short-lived DNS child handles
+`getaddrinfo`; it is gone during the measured phases. `poll()` waits for stdin
+and the transport. Idle UI polling uses a 100 ms timeout, so idle does not mean
+zero wakeups. Work per network tick remains bounded to preserve responsiveness.
+TLS records, IRC frames, application reads and kernel syscalls have different
+boundaries; one IRC message need not correspond to one socket read.
+
+| Phase | Duration | Read calls | Write calls | Written bytes | Voluntary / involuntary switches | Minor / major faults |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Offline idle | 5 s | 0 | 0 | 0 | 50 / 0 | 0 / 0 |
+| TLS idle | 5 s | 2 | 1 | 47 | 51 / 0 | 0 / 0 |
+| 1 channel / 1000 msg/s | 10 s | 602 | 15,489 | 1,143,272 | 104 / 51 | 19 / 0 |
+| 20 channels / 1000 msg/s | 10 s | 602 | 17,892 | 130,806 | 103 / 14 | 0 / 0 |
+| 20 channels / idle | 5 s | 2 | 1 | 47 | 50 / 0 | 0 / 0 |
+
+
+Counters above are median **totals per phase**, not rates. They come from
+`/proc/PID/io`, `stat` and `status`; reads/writes aggregate all client descriptors,
+including TLS and PTY I/O. `rchar`/`wchar` count bytes passed through the relevant
+I/O calls, not physical disk traffic. Voluntary switches reflect waits;
+involuntary switches reflect scheduling/preemption. Minor faults do not require
+disk page-in; major faults do. Startup faults are excluded by the warm-up.
+Definitions follow the [kernel's proc interface](https://docs.kernel.org/filesystems/proc.html).
+
+Curses processing and terminal writes remain in the end-to-end cost after the
+text/history optimization. The 20-channel case updates many background buffers,
+so it emits fewer terminal bytes than the one-channel case even though the
+aggregate message rate is the same. The measured read/write counts do not
+include the fixture's work. No CPU cycles, retired instructions, IPC, branch
+mispredictions, cache misses, DRAM bandwidth or energy were collected: these
+require a separate PMU/power measurement. Nanoseconds here are CPU time, not
+cycles estimated from an advertised clock frequency.
+
+For outgoing chat, a queue slot keeps its pointer and length stable across
+OpenSSL `WANT_READ`/`WANT_WRITE` retries. Only full frame completion invokes the
+history callback; tokens prevent stale callbacks from touching a cleared,
+closed or overwritten line. `[queued]` then disappears. Disconnecting with
+pending frames changes their retained echoes to `[unsent]`. A completed TLS
+write is not an IRC delivery receipt; a later server error remains visible.
+This follows the [OpenSSL write contract](https://docs.openssl.org/3.6/man3/SSL_write/).
+
+### Reproduce and inspect the data
+
+The client and its tests remain C-only. Measurement helpers additionally need
+Linux `/proc`, Python 3, the `openssl` CLI and permission for local sockets/PTYS.
+The core comparison also needs a GNU-compatible linker with `--wrap` support.
+Only plotting needs matplotlib. The harness trusts a temporary local certificate
+explicitly and never contacts an external IRC server.
 
 ```sh
+# Baseline source and executable in a separate directory
+mkdir -p /tmp/posirc-baseline
+git archive df16176 | tar -x -C /tmp/posirc-baseline
+make -C /tmp/posirc-baseline
 make clean && make
-python3 benchmarks/measure.py --runs 3 --output /tmp/posirc-results
-# Optional chart generation, in a separate environment:
+
+# Run sequentially, not concurrently
+python3 benchmarks/measure.py --binary /tmp/posirc-baseline/posirc \
+    --source-dir /tmp/posirc-baseline --label before --output /tmp/posirc-results/before
+python3 benchmarks/measure.py --label after --output /tmp/posirc-results
+python3 benchmarks/core.py --before /tmp/posirc-baseline \
+    --output /tmp/posirc-results/core.csv
+
 python3 -m venv /tmp/posirc-plots
 /tmp/posirc-plots/bin/pip install matplotlib==3.11.2
 /tmp/posirc-plots/bin/python benchmarks/plot.py /tmp/posirc-results
+
+# Examine code generation and executable sections
+objdump -dr --disassemble=text_clean src/text.o
+size posirc
 ```
 
-The harness generates a temporary certificate trusted explicitly by the client;
-certificate and IP verification remain enabled. It contacts no external server.
-See the committed [raw samples](docs/benchmarks/samples.csv),
-[per-run results and binary/source identifiers](docs/benchmarks/results.json),
-[measurement script](benchmarks/measure.py) and [plot script](benchmarks/plot.py).
+Raw artifacts: [current samples](docs/benchmarks/samples.csv),
+[baseline samples](docs/benchmarks/before/samples.csv),
+[core timings and allocation counts](docs/benchmarks/core.csv).
+The result JSONs include cache/page geometry, compiler/library versions, flags,
+per-phase counters and binary/source SHA-256 values. `source_revision` records
+the base checkout; `source_sha256` identifies the measured file contents even
+when changes have not yet been committed. See the
+[measurement harness](benchmarks/measure.py), [core runner](benchmarks/core.py)
+and [C kernels](benchmarks/core.c) for the exact workloads.
 
 ## Source layout
 
@@ -441,6 +611,9 @@ Coverage includes:
   parameter parsing, case mapping, local commands and transcript wraparound.
 - TLS 1.2/1.3, IRC registration, fragmented PING, JOIN, channel/private messages,
   NICK, PART and QUIT against a loopback server.
+- Outgoing status: queued → written, unsent frames on disconnect, duplicate
+  text, history wraparound, `/clear`, `/close` and server-buffer fallback.
+- Sanitizer equivalence across byte patterns and destination capacities.
 - CLI pipes: literal slash-prefixed messages, CRLF, empty/final lines, split UTF-8,
   queue turnover, wire limits, channel filtering, flushed TSV, broken stdout,
   rejected JOINs/nicknames/sends and untrusted certificates.

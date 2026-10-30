@@ -118,6 +118,18 @@ void text_clean(char *output, size_t capacity, const char *input, int formatting
     size_t used = 0;
     if (capacity == 0) return;
     while (*input != '\0') {
+        /* Printable ASCII needs neither Unicode decoding nor sanitizing.
+         * Stop before controls/high bytes and keep the scalar path unchanged. */
+        const char *start = input;
+        size_t room = capacity - used - 1;
+        while ((unsigned char)*input >= 32 && (unsigned char)*input < 127 &&
+               (size_t)(input - start) < room) ++input;
+        if (input != start) {
+            size_t length = (size_t)(input - start);
+            memcpy(output + used, start, length);
+            used += length;
+        }
+        if (*input == '\0' || used == capacity - 1) break;
         uint32_t c;
         char encoded[5];
         size_t length = utf8_decode(input, &c);

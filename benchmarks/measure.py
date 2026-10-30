@@ -29,8 +29,18 @@ def snapshot(pid):
         if ':' in line:
             key, value = line.split(':', 1)
             memory[key] = int(value.split()[0])
+    status = dict(line.split(':', 1) for line in Path(f'/proc/{pid}/status').read_text().splitlines() if ':' in line)
+    io = dict(line.split(':', 1) for line in Path(f'/proc/{pid}/io').read_text().splitlines())
     return dict(rss_mib=memory['Rss'] / 1024, pss_mib=memory['Pss'] / 1024,
-                cpu_seconds=(int(fields[11]) + int(fields[12])) / TICKS)
+                uss_mib=(memory['Private_Clean'] + memory['Private_Dirty']) / 1024,
+                anonymous_mib=memory['Anonymous'] / 1024,
+                cpu_seconds=(int(fields[11]) + int(fields[12])) / TICKS,
+                minor_faults=int(fields[7]), major_faults=int(fields[9]),
+                voluntary_switches=int(status['voluntary_ctxt_switches']),
+                involuntary_switches=int(status['nonvoluntary_ctxt_switches']),
+                read_calls=int(io['syscr']), write_calls=int(io['syscw']),
+                read_bytes=int(io['rchar']), write_bytes=int(io['wchar']))
+
 
 
 def drain(fd):
@@ -41,7 +51,7 @@ def drain(fd):
         pass
 
 
-def run(number, certificate, key, samples, summaries):
+def run(number, certificate, key, samples, summaries, binary):
     listener = socket.socket()
     listener.bind(('127.0.0.1', 0))
     listener.listen(1)
@@ -49,7 +59,7 @@ def run(number, certificate, key, samples, summaries):
     master, slave = pty.openpty()
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 40, 120, 0, 0))
     started = time.monotonic()
-    client = subprocess.Popen([str(ROOT / 'posirc'), '-n', 'bench', '-c', str(certificate)],
+    client = subprocess.Popen([str(binary), '-n', 'bench', '-c', str(certificate)],
                               stdin=slave, stdout=slave, stderr=slave,
                               env={**os.environ, 'TERM': 'xterm-256color', 'LC_ALL': 'C.UTF-8'})
     os.close(slave)
@@ -73,8 +83,10 @@ def run(number, certificate, key, samples, summaries):
         raise TimeoutError(fragment)
 
     def barrier():
+        start = time.monotonic()
         conn.sendall(b'PING :benchmark-barrier\r\n')
         until(b'PONG :benchmark-barrier')
+        return (time.monotonic() - start) * 1000
 
     def phase(name, duration, channels=0):
         start = time.monotonic()
@@ -94,13 +106,12 @@ def run(number, certificate, key, samples, summaries):
             now = time.monotonic()
             current = snapshot(client.pid)
             row = dict(run=number, phase=name, elapsed_s=now-started,
-                       rss_mib=current['rss_mib'], pss_mib=current['pss_mib'],
+                       rss_mib=current['rss_mib'], pss_mib=current['pss_mib'], uss_mib=current['uss_mib'],
                        cpu_pct=100*(current['cpu_seconds']-previous['cpu_seconds'])/(now-previous_time))
             rows.append(row)
             samples.append(row)
             previous, previous_time = current, now
-        if conn:
-            barrier()  # Last PONG proves that preceding frames reached the IRC parser.
+        barrier_ms = barrier() if conn else None  # All preceding frames reached the parser.
         end = time.monotonic()
         after = snapshot(client.pid)
         summaries.append(dict(run=number, phase=name, duration_s=end-start, messages=sent,
@@ -109,7 +120,13 @@ def run(number, certificate, key, samples, summaries):
                               pss_mib=sum(r['pss_mib'] for r in rows)/len(rows),
                               peak_rss_mib=max(r['rss_mib'] for r in rows),
                               cpu_pct=100*(after['cpu_seconds']-before['cpu_seconds'])/(end-start)))
-        print(number, name, summaries[-1], flush=True)
+        summary = summaries[-1]
+        summary['uss_mib'] = sum(r['uss_mib'] for r in rows)/len(rows)
+        summary['barrier_ms'] = barrier_ms
+        for key in ('cpu_seconds', 'minor_faults', 'major_faults', 'voluntary_switches',
+                    'involuntary_switches', 'read_calls', 'write_calls', 'read_bytes', 'write_bytes'):
+            summary[key] = after[key] - before[key]
+        print(number, name, f"RSS={summary['rss_mib']:.2f} MiB CPU={summary['cpu_pct']:.2f}%", flush=True)
 
     try:
         time.sleep(1)  # Warm-up, excluded from phase averages.
@@ -160,6 +177,9 @@ def run(number, certificate, key, samples, summaries):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--binary', type=Path, default=ROOT / 'posirc')
+    parser.add_argument('--label', default='optimized')
+    parser.add_argument('--source-dir', type=Path, default=ROOT)
     parser.add_argument('--runs', type=int, default=3)
     parser.add_argument('--output', type=Path, default=ROOT / 'docs/benchmarks')
     args = parser.parse_args()
@@ -174,18 +194,23 @@ def main():
                         '-subj', '/CN=127.0.0.1', '-addext', 'subjectAltName=IP:127.0.0.1'],
                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         for number in range(1, args.runs+1):
-            run(number, certificate, key, samples, summaries)
+            run(number, certificate, key, samples, summaries, args.binary.resolve())
     with (args.output/'samples.csv').open('w') as file:
-        writer = csv.DictWriter(file, fieldnames=list(samples[0]))
+        writer = csv.DictWriter(file, fieldnames=list(samples[0]), lineterminator='\n')
         writer.writeheader()
         writer.writerows(samples)
-    metadata = dict(date=time.strftime('%Y-%m-%d'), platform=platform.platform(),
+    source_files = sorted([*args.source_dir.glob('src/*.c'), *args.source_dir.glob('include/*.h'), args.source_dir/'Makefile'])
+    source_hashes = {str(p.relative_to(args.source_dir)): hashlib.sha256(p.read_bytes()).hexdigest() for p in source_files}
+    metadata = dict(label=args.label, source_sha256=source_hashes, build_flags='cc -O2, dynamic linking, no sanitizers',
+                    page_bytes=os.sysconf('SC_PAGE_SIZE'),
+                    cache={p.name: {f: (p/f).read_text().strip() for f in ('level', 'type', 'size', 'coherency_line_size')} for p in Path('/sys/devices/system/cpu/cpu0/cache').glob('index*')},
+                    date=time.strftime('%Y-%m-%d'), platform=platform.platform(),
                     cpu=next(line.split(':', 1)[1].strip() for line in Path('/proc/cpuinfo').read_text().splitlines() if line.startswith('model name')),
                     compiler=subprocess.check_output(['cc', '--version'], text=True).splitlines()[0],
                     openssl=subprocess.check_output(['openssl', 'version'], text=True).strip(),
                     source_revision=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
-                    binary_bytes=(ROOT/'posirc').stat().st_size,
-                    binary_sha256=hashlib.sha256((ROOT/'posirc').read_bytes()).hexdigest(),
+                    binary_bytes=args.binary.stat().st_size,
+                    binary_sha256=hashlib.sha256(args.binary.read_bytes()).hexdigest(),
                     clock_ticks_per_second=TICKS, terminal='xterm-256color, 120x40, C.UTF-8',
                     summaries=summaries)
     (args.output/'results.json').write_text(json.dumps(metadata, indent=2)+'\n')

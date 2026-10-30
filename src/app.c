@@ -394,7 +394,8 @@ static void network_event(void *context, enum net_event event, const char *text,
         app->frame.length = 0;
         {
             size_t index;
-            for (index = 1; index < POSIRC_BUFFER_CAPACITY; ++index) {
+            for (index = 0; index < POSIRC_BUFFER_CAPACITY; ++index) {
+                if (buffer_complete(&app->buffers[index], 0, 0)) ++app->revision;
                 app->buffers[index].joined = 0;
                 buffer_users_clear(&app->buffers[index]);
             }
@@ -482,8 +483,20 @@ static char *take_word(char **cursor)
     return word;
 }
 
+static void message_sent(void *context, unsigned long tag)
+{
+    struct posirc_app *app = context;
+    struct posirc_buffer *buffer = &app->buffers[tag % POSIRC_BUFFER_CAPACITY];
+    if (buffer_complete(buffer, tag, 1)) ++app->revision;
+}
+
 static void send_message(struct posirc_app *app, const char *target, const char *text)
 {
+    struct posirc_buffer *buffer;
+    char wire[IRC_WIRE_CAPACITY], echo[POSIRC_TEXT_CAPACITY];
+    unsigned long tag;
+    size_t index;
+    int length;
     if (!app->registered) {
         append_line(app, "Not registered: message was not sent.");
         return;
@@ -492,11 +505,33 @@ static void send_message(struct posirc_app *app, const char *target, const char 
         append_line(app, "Choose a target with /join, /query or /target first.");
         return;
     }
-    if (send_command(app, "PRIVMSG %s :%s", target, text) == 0) {
-        struct posirc_buffer *buffer = open_buffer(app, target,
-            channel_valid(app, target) ? BUFFER_CHANNEL : BUFFER_QUERY);
-        log_to(app, buffer, "[%s] <%s> %s\017 [queued]", target, app->nick, text);
+    length = snprintf(wire, sizeof wire, "PRIVMSG %s :%s", target, text);
+    if (length < 0 || length > IRC_WIRE_CAPACITY - 2) {
+        append_line(app, "Message exceeds the IRC limit (510 bytes before CRLF).");
+        return;
     }
+    buffer = posirc_app_find(app, target);
+    if (buffer == NULL) {
+        /* Reserve the future slot without opening a query when queueing fails.
+         * net_send_tracked only enqueues; callbacks run in a later net_step. */
+        for (index = 1; index < POSIRC_BUFFER_CAPACITY; ++index)
+            if (app->buffers[index].type == BUFFER_UNUSED) break;
+        buffer = &app->buffers[index < POSIRC_BUFFER_CAPACITY ? index : 0];
+    }
+    /* Low bits select a stable buffer slot; the serial prevents late callbacks
+     * from changing a replacement history entry after /clear, /close or wrap. */
+    do { tag = ++app->message_serial * POSIRC_BUFFER_CAPACITY + (unsigned long)(buffer - app->buffers); }
+    while (tag == 0);
+    if (net_send_tracked(app->net, wire, tag, message_sent) != 0) {
+        append_line(app, "Cannot queue message: disconnected, closing or send queue full.");
+        return;
+    }
+    buffer = open_buffer(app, target, channel_valid(app, target) ? BUFFER_CHANNEL : BUFFER_QUERY);
+    if (buffer == NULL) buffer = &app->buffers[0];
+    (void)snprintf(echo, sizeof echo, "[%s] <%s> %s\017 [queued]", target, app->nick, text);
+    if (buffer_append_pending(buffer, echo, tag) != 0) ++app->dropped_lines;
+    if (buffer != posirc_app_current(app) && buffer->unread < POSIRC_HISTORY_CAPACITY) ++buffer->unread;
+    ++app->revision;
 }
 
 static void disconnect_app(struct posirc_app *app, int quitting)

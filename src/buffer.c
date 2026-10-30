@@ -39,31 +39,62 @@ void buffer_free(struct posirc_buffer *buffer)
     memset(buffer, 0, sizeof *buffer);
 }
 
-int buffer_append(struct posirc_buffer *buffer, const char *text)
+int buffer_append_pending(struct posirc_buffer *buffer, const char *text, unsigned long tag)
 {
     char clean[POSIRC_TEXT_CAPACITY];
-    char *copy;
-    size_t slot;
+    struct posirc_history *entry;
+    size_t slot, length;
     text_clean(clean, sizeof clean, text, 1);
-    copy = malloc(strlen(clean) + 1);
-    if (copy == NULL) return -1;
-    memcpy(copy, clean, strlen(clean) + 1);
-    if (buffer->history_count == POSIRC_HISTORY_CAPACITY) {
-        slot = buffer->history_start;
-        buffer->history_start = (slot + 1) % POSIRC_HISTORY_CAPACITY;
-    } else {
-        slot = (buffer->history_start + buffer->history_count++) % POSIRC_HISTORY_CAPACITY;
+    length = strlen(clean) + 1;
+    slot = (buffer->history_start + buffer->history_count) % POSIRC_HISTORY_CAPACITY;
+    entry = buffer->history[slot];
+    /* Reuse a ring slot's allocation after wraparound. Grow before changing
+     * indices so an allocation failure leaves the existing history intact. */
+    if (entry == NULL || entry->capacity < length) {
+        struct posirc_history *grown = realloc(entry, sizeof *entry + length);
+        if (grown == NULL) return -1;
+        entry = grown;
+        entry->capacity = length;
+        buffer->history[slot] = entry;
     }
-    free(buffer->history[slot]);
-    buffer->history[slot] = copy;
+    memcpy(entry->text, clean, length);
+    entry->pending = tag;
+    if (buffer->history_count == POSIRC_HISTORY_CAPACITY)
+        buffer->history_start = (slot + 1) % POSIRC_HISTORY_CAPACITY;
+    else
+        ++buffer->history_count;
     if (buffer->scroll > 0 && buffer->scroll < buffer->history_count - 1) ++buffer->scroll;
     return 0;
+}
+
+int buffer_append(struct posirc_buffer *buffer, const char *text)
+{
+    return buffer_append_pending(buffer, text, 0);
+}
+
+int buffer_complete(struct posirc_buffer *buffer, unsigned long tag, int sent)
+{
+    size_t index;
+    int changed = 0;
+    for (index = 0; index < buffer->history_count; ++index) {
+        struct posirc_history *entry = buffer->history[(buffer->history_start + index) % POSIRC_HISTORY_CAPACITY];
+        if (entry->pending != 0 && (tag == 0 || entry->pending == tag)) {
+            size_t length = strlen(entry->text);
+            if (length >= 9 && strcmp(entry->text + length - 9, " [queued]") == 0) {
+                if (sent) entry->text[length - 9] = '\0';
+                else memcpy(entry->text + length - 9, " [unsent]", 10);
+                changed = 1;
+            }
+            entry->pending = 0;
+        }
+    }
+    return changed;
 }
 
 const char *buffer_line(const struct posirc_buffer *buffer, size_t index)
 {
     if (index >= buffer->history_count) return NULL;
-    return buffer->history[(buffer->history_start + index) % POSIRC_HISTORY_CAPACITY];
+    return buffer->history[(buffer->history_start + index) % POSIRC_HISTORY_CAPACITY]->text;
 }
 
 struct posirc_user *buffer_user(struct posirc_buffer *buffer, const char *nick, int mapping)

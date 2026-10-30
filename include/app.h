@@ -16,7 +16,7 @@ struct posirc_net;
 struct posirc_app {
     struct posirc_buffer buffers[POSIRC_BUFFER_CAPACITY];
     size_t active_buffer, dropped_lines;
-    unsigned long revision;
+    unsigned long revision, message_serial;
     int running, quitting, registered, case_mapping;
     char nick[64];
     char target[POSIRC_TARGET_CAPACITY];

@@ -81,3 +81,50 @@ for ax in axes:
     ax.set_ylim(bottom=0)
     ax.grid(alpha=.2)
 fig.savefig(args.directory/'load.svg', metadata={'Date': None})
+
+# Same-host baseline comparison, separate from the current footprint.
+before_path = args.directory/'before/results.json'
+if before_path.exists():
+    before = json.loads(before_path.read_text())['summaries']
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5), layout='constrained')
+    for ax, metric, title in zip(axes, ('cpu_pct', 'uss_mib'), ('CPU (% of one core)', 'Private resident memory / USS (MiB)')):
+        for offset, dataset, label, color in [(-.18, before, 'Before', '#64748b'), (.18, rows, 'After', '#0d9488')]:
+            values = [[r[metric] for r in dataset if r['phase'] == phase] for phase in phases]
+            medians = [statistics.median(v) for v in values]
+            ax.bar([i+offset for i in range(len(phases))], medians, width=.34, label=label, color=color,
+                   yerr=[[m-min(v) for m,v in zip(medians,values)], [max(v)-m for m,v in zip(medians,values)]], capsize=3)
+            for i, m in enumerate(medians):
+                ax.text(i+offset, max(values[i])+.05, f'{m:.2f}', ha='center', fontsize=8)
+        ax.set_xticks(range(len(phases)), labels, fontsize=8)
+        ax.set_ylabel(title)
+        ax.grid(axis='y', alpha=.18)
+        ax.set_axisbelow(True)
+        ax.set_ylim(0, ax.get_ylim()[1]*1.15)
+        ax.legend()
+    fig.suptitle('Same host, same load · median of 3 runs; min–max whiskers')
+    fig.savefig(args.directory/'comparison.svg', metadata={'Date': None})
+
+core_path = args.directory/'core.csv'
+if core_path.exists():
+    with core_path.open() as file:
+        kernels = list(csv.DictReader(file))
+    fig, ax = plt.subplots(figsize=(10, 4.5), layout='constrained')
+    for offset, label, color in [(-.18, 'before', '#64748b'), (.18, 'after', '#0d9488')]:
+        values = [[float(r['value']) for r in kernels if r['build'] == label and r['workload'] == workload and r['metric'] == 'ns_per_op'] for workload in ('clean_0', 'clean_1', 'clean_2', 'history')]
+        medians = [statistics.median(v) for v in values]
+        ax.bar([i+offset for i in range(4)], medians, width=.34, label=label.title(), color=color,
+               yerr=[[m-min(v) for m,v in zip(medians,values)], [max(v)-m for m,v in zip(medians,values)]], capsize=3)
+        for i, m in enumerate(medians):
+            ax.text(i+offset, max(values[i])+15, f'{m:.0f} ns', ha='center')
+    ax.set_xticks(range(4), ['Clean ASCII', 'Clean mixed UTF-8', 'Clean IRC formatting', 'Append to full history'])
+    ax.set_ylabel('CPU nanoseconds per operation · lower is better')
+    ax.set_ylim(0, ax.get_ylim()[1]*1.1)
+    ax.grid(axis='y', alpha=.18)
+    ax.set_axisbelow(True)
+    ax.legend()
+    ax.set_title('400-byte inputs · 1,000,000 operations/run · median of 5 runs; min–max')
+    fig.savefig(args.directory/'core.svg', metadata={'Date': None})
+
+# Keep generated SVG source whitespace-clean for repository reviews.
+for path in args.directory.glob('*.svg'):
+    path.write_text('\n'.join(line.rstrip() for line in path.read_text().splitlines())+'\n')

@@ -130,7 +130,7 @@ static void expect_line(SSL *tls, const char *expected)
     }
 }
 
-enum scenario { CHAT, REJECT, QUEUE, MALFORMED, ABRUPT,
+enum scenario { CHAT, REJECT, QUEUE, MALFORMED, ABRUPT, DROP_QUEUED,
                 PIPE_SEND, PIPE_EMPTY, PIPE_INVALID, PIPE_OUTPUT, PIPE_DENIED,
                 PIPE_NICK, PIPE_LIMIT, PIPE_SEND_DENIED, PIPE_BROKEN_OUTPUT, PIPE_FRAGMENT, PIPE_LISTEN };
 
@@ -235,7 +235,11 @@ static void serve(int listener, SSL_CTX *context, enum scenario scenario)
         } else {
             expect_line(tls, "NICK tester\r\n");
             expect_line(tls, "USER posirc 0 * :POSIRC client\r\n");
-            if (scenario == MALFORMED) {
+            if (scenario == DROP_QUEUED) {
+                char byte;
+                server_write(tls, ":srv 001 tester :Welcome\r\n:tester!u@h JOIN #room\r\n");
+                REQUIRE(SSL_read(tls, &byte, 1) <= 0);
+            } else if (scenario == MALFORMED) {
                 server_write(tls, "NOTICE * :invalid bare LF\n");
             } else if (scenario == ABRUPT) {
                 (void)close(socket_fd);
@@ -337,6 +341,15 @@ static void app_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file,
     REQUIRE(posirc_app_connect(&app, host, port) == 0);
     while (net_active(app.net) && time(NULL) < deadline) {
         posirc_app_step(&app, -1, 10);
+        if (scenario == DROP_QUEUED && app.registered && app.target[0] != '\0') {
+            posirc_app_submit(&app, "unsent test");
+            CHECK(history_has(&app, "unsent test\017 [queued]"));
+            CHECK(buffer_append_pending(&app.buffers[0], "fallback [queued]", 64) == 0);
+            net_disconnect(app.net, "test drop before flushing");
+            CHECK(history_has(&app, "fallback [unsent]"));
+            CHECK(history_has(&app, "unsent test\017 [unsent]"));
+            CHECK(!history_has(&app, "[queued]"));
+        }
         if (scenario == CHAT) {
             if (stage == 0 && history_has(&app, "hello?[31m")) {
                 CHECK(app.registered && strcmp(app.target, "#room") == 0);
@@ -351,9 +364,12 @@ static void app_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file,
                 }
                 posirc_app_submit(&app, "caffè 日 😀");
                 posirc_app_submit(&app, "/msg friend \00304hello friend\017");
+                CHECK(history_has(&app, "[queued]"));
                 posirc_app_submit(&app, "/nick other");
                 stage = 1;
             } else if (stage == 1 && strcmp(app.nick, "other") == 0) {
+                CHECK(!history_has(&app, "[queued]"));
+                CHECK(history_has(&app, "caffè 日 😀"));
                 posirc_app_submit(&app, "/part");
                 stage = 2;
             } else if (stage == 2 && app.target[0] == '\0') {
@@ -545,6 +561,7 @@ int main(void)
     puts("OK: untrusted CA, wrong hostname/IP and expired certificate rejected");
     app_scenario(valid, server_key, ca_path, MALFORMED, "Invalid/oversized", TLS1_2_VERSION, "localhost");
     app_scenario(valid, server_key, ca_path, ABRUPT, "TLS read", TLS1_2_VERSION, "localhost");
+    app_scenario(valid, server_key, ca_path, DROP_QUEUED, "test drop", TLS1_2_VERSION, "localhost");
     queue_scenario(valid, server_key, ca_path);
     puts("OK: malformed frames, abrupt close, IP verification, bounded queue and wraparound");
     pipe_scenarios(valid, server_key, ca_path, other_path);

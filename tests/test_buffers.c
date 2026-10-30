@@ -20,8 +20,39 @@ static int present(struct posirc_buffer *buffer, const char *nick)
     return user != NULL && user->present;
 }
 
+static void completion_history(void)
+{
+    struct posirc_buffer buffer;
+    size_t i;
+    buffer_init(&buffer, BUFFER_QUERY, "peer");
+    CHECK(buffer_append_pending(&buffer, "same [queued]", 11) == 0);
+    CHECK(buffer_append_pending(&buffer, "same [queued]", 12) == 0);
+    CHECK(buffer_complete(&buffer, 12, 1));
+    CHECK(strcmp(buffer_line(&buffer, 0), "same [queued]") == 0);
+    CHECK(strcmp(buffer_line(&buffer, 1), "same") == 0);
+    CHECK(buffer_complete(&buffer, 0, 0));
+    CHECK(strcmp(buffer_line(&buffer, 0), "same [unsent]") == 0);
+    CHECK(!buffer_complete(&buffer, 11, 1));
+    buffer_clear(&buffer);
+    CHECK(buffer_append_pending(&buffer, "old [queued]", 13) == 0);
+    for (i = 0; i < POSIRC_HISTORY_CAPACITY; ++i) CHECK(buffer_append(&buffer, "new") == 0);
+    CHECK(!buffer_complete(&buffer, 13, 1));
+    CHECK(strcmp(buffer_line(&buffer, 0), "new") == 0);
+    buffer_clear(&buffer);
+    CHECK(buffer_append_pending(&buffer, "cleared [queued]", 14) == 0);
+    buffer_clear(&buffer);
+    CHECK(buffer_append_pending(&buffer, "retained [queued]", 15) == 0);
+    CHECK(!buffer_complete(&buffer, 14, 1));
+    CHECK(strcmp(buffer_line(&buffer, 0), "retained [queued]") == 0);
+    buffer_free(&buffer);
+    buffer_init(&buffer, BUFFER_QUERY, "replacement");
+    CHECK(!buffer_complete(&buffer, 15, 1));
+    buffer_free(&buffer);
+}
+
 int main(void)
 {
+    completion_history();
     struct posirc_app app;
     struct posirc_buffer *one, *two, *query;
     size_t selected, index;

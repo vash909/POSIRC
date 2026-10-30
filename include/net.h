@@ -17,6 +17,11 @@ void net_disconnect(struct posirc_net *net, const char *reason);
 /* Queue one complete IRC payload, without CRLF. Reject overflow/injection.
  * A successful return means queued locally, not delivered to the server. */
 int net_send(struct posirc_net *net, const char *line);
+/* Called once after the whole frame is accepted by SSL_write, never on failure.
+ * Receives net_create's context. This is transport progress, not a delivery ACK. */
+typedef void (*net_sent_callback)(void *, unsigned long);
+int net_send_tracked(struct posirc_net *net, const char *line,
+                     unsigned long tag, net_sent_callback sent);
 /* Drain queued data and send TLS close_notify, with a two-second deadline. */
 void net_finish(struct posirc_net *net);
 /* Number of queued frames, including a partially written frame. */

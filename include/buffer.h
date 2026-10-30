@@ -15,12 +15,17 @@ struct posirc_user {
     unsigned int modes;
     int present, live;
 };
+struct posirc_history {
+    size_t capacity;
+    unsigned long pending;
+    char text[];
+};
 struct posirc_buffer {
     enum buffer_type type;
     char name[POSIRC_TARGET_CAPACITY];
     int joined, names_sync, users_dirty, users_truncated;
     char topic[POSIRC_TEXT_CAPACITY];
-    char *history[POSIRC_HISTORY_CAPACITY];
+    struct posirc_history *history[POSIRC_HISTORY_CAPACITY];
     size_t history_start, history_count, unread, scroll;
     char draft[POSIRC_TEXT_CAPACITY];
     size_t cursor, user_scroll;
@@ -31,6 +36,9 @@ void buffer_init(struct posirc_buffer *buffer, enum buffer_type type, const char
 void buffer_free(struct posirc_buffer *buffer);
 void buffer_clear(struct posirc_buffer *buffer);
 int buffer_append(struct posirc_buffer *buffer, const char *text);
+/* Tag only locally queued messages; completion must match the retained entry. */
+int buffer_append_pending(struct posirc_buffer *buffer, const char *text, unsigned long tag);
+int buffer_complete(struct posirc_buffer *buffer, unsigned long tag, int sent);
 const char *buffer_line(const struct posirc_buffer *buffer, size_t index);
 struct posirc_user *buffer_user(struct posirc_buffer *buffer, const char *nick, int mapping);
 /* live events take precedence over stale entries in an in-flight NAMES list. */

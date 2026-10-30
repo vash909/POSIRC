@@ -41,6 +41,8 @@ struct resolution {
     struct address addresses[ADDRESS_CAPACITY];
 };
 struct outgoing {
+    net_sent_callback sent;
+    unsigned long tag;
     char data[IRC_WIRE_CAPACITY];
     size_t length;
 };
@@ -356,7 +358,8 @@ int net_ready(const struct posirc_net *net)
     return net != NULL && net->phase == ONLINE;
 }
 
-int net_send(struct posirc_net *net, const char *line)
+int net_send_tracked(struct posirc_net *net, const char *line,
+                     unsigned long tag, net_sent_callback sent)
 {
     size_t length, slot;
     if (!net_ready(net) || line == NULL || net->queue_count == QUEUE_CAPACITY)
@@ -368,8 +371,15 @@ int net_send(struct posirc_net *net, const char *line)
     memcpy(net->queue[slot].data, line, length);
     memcpy(net->queue[slot].data + length, "\r\n", 2);
     net->queue[slot].length = length + 2;
+    net->queue[slot].tag = tag;
+    net->queue[slot].sent = sent;
     ++net->queue_count;
     return 0;
+}
+
+int net_send(struct posirc_net *net, const char *line)
+{
+    return net_send_tracked(net, line, 0, NULL);
 }
 
 void net_finish(struct posirc_net *net)
@@ -425,6 +435,7 @@ static void write_queue(struct posirc_net *net)
             net->write_offset = 0;
             net->queue_start = (net->queue_start + 1) % QUEUE_CAPACITY;
             --net->queue_count;
+            if (message->sent != NULL) message->sent(net->context, message->tag);
         }
         return;
     }

@@ -74,8 +74,54 @@ static void check_formatting(void)
     CHECK(!text_next(&reader, &c));
 }
 
+/* Frozen scalar sanitizer for differential checks of the ASCII fast path. */
+static void scalar_clean(char *out, size_t capacity, const char *in, int formatting)
+{
+    size_t used = 0;
+    if (capacity == 0) return;
+    while (*in) {
+        uint32_t c;
+        char encoded[5];
+        size_t n = utf8_decode(in, &c);
+        in += n;
+        if ((c < 32 || (c >= 127 && c <= 159) || c == 0x2028 || c == 0x2029 ||
+             (c >= 0x202a && c <= 0x202e) || (c >= 0x2066 && c <= 0x2069)) &&
+            !(formatting && text_format_code(c))) c = '?';
+        n = utf8_encode(c, encoded);
+        if (used + n >= capacity) break;
+        memcpy(out + used, encoded, n);
+        used += n;
+    }
+    out[used] = '\0';
+}
+
+static void differential_clean(void)
+{
+    unsigned int seed = 7;
+    size_t trial, capacity, i;
+    int formatting;
+    for (trial = 0; trial < 2000; ++trial) {
+        char input[64], expected[70], actual[70];
+        for (i = 0; i < sizeof input - 1; ++i) {
+            seed = seed * 1664525u + 1013904223u;
+            input[i] = trial < 256 ? (char)trial : (char)(seed >> 24);
+        }
+        input[sizeof input - 1] = '\0';
+        for (capacity = 0; capacity <= sizeof actual; ++capacity) {
+            for (formatting = 0; formatting <= 1; ++formatting) {
+                memset(actual, 0x55, sizeof actual);
+                memset(expected, 0x55, sizeof expected);
+                scalar_clean(expected, capacity, input, formatting);
+                text_clean(actual, capacity, input, formatting);
+                CHECK(memcmp(actual, expected, sizeof actual) == 0);
+            }
+        }
+    }
+}
+
 int main(void)
 {
+    differential_clean();
     check_utf8();
     check_formatting();
     if (failures) return EXIT_FAILURE;
