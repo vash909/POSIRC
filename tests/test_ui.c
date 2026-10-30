@@ -68,6 +68,73 @@ static void pane_boundaries(struct posirc_app *app, struct ui_colors *colors)
     }
 }
 
+static void wrapped_history(struct posirc_app *app, struct ui_colors *colors, int expect_color)
+{
+    struct posirc_buffer *buffer = posirc_app_current(app);
+    attr_t attributes;
+    short pair;
+    wchar_t combining;
+    char line[POSIRC_TEXT_CAPACITY];
+    size_t i;
+    buffer_clear(buffer);
+    for (i = 0; i < 180; ++i) line[i] = (char)('a' + i % 26);
+    line[i] = '\0';
+    CHECK(buffer_append(buffer, line) == 0);
+    draw(app, colors, 12, 60); /* 59 cells, four rows, no sidebars. */
+    for (i = 0; i < 180; ++i)
+        CHECK(cell(2 + (int)(i / 59), (int)(i % 59), &attributes, &pair, &combining) == (wchar_t)line[i]);
+    CHECK(buffer->history_count == 1 && strcmp(buffer_line(buffer, 0), line) == 0);
+    draw(app, colors, 7, 60); /* The tail of a message taller than the pane. */
+    CHECK(cell(2, 0, &attributes, &pair, &combining) == (wchar_t)line[59]);
+    scroll_history(buffer, 59, 1, 1);
+    draw(app, colors, 7, 60);
+    CHECK(buffer->scroll == 0 && buffer->scroll_row == 1);
+    CHECK(cell(2, 0, &attributes, &pair, &combining) == L'a');
+    CHECK(buffer_append(buffer, "new message while scrolled") == 0);
+    draw(app, colors, 7, 60);
+    CHECK(buffer->scroll == 1 && buffer->scroll_row == 1);
+    CHECK(cell(2, 0, &attributes, &pair, &combining) == L'a');
+    scroll_history(buffer, 59, 10000, 0);
+    draw(app, colors, 7, 60);
+    CHECK(buffer->scroll == 0 && buffer->scroll_row == 0);
+    CHECK(cell(4, 0, &attributes, &pair, &combining) == L'n');
+    scroll_history(buffer, 59, 10000, 1);
+    draw(app, colors, 7, 60);
+    CHECK(buffer->scroll == 1 && buffer->scroll_row == 3);
+    CHECK(cell(2, 0, &attributes, &pair, &combining) == L'a');
+    /* Reflow clamps a within-message position after a width change. */
+    draw(app, colors, 12, 99);
+    CHECK(buffer->scroll_row < wrapped_rows(buffer_line(buffer, 0), 77));
+    buffer_clear(buffer);
+    CHECK(buffer->scroll == 0 && buffer->scroll_row == 0);
+    memset(line, 'x', 58);
+    (void)snprintf(line + 58, sizeof line - 58, "\002\00304日e\314\201\017z");
+    CHECK(buffer_append(buffer, line) == 0);
+    draw(app, colors, 12, 60);
+    CHECK(cell(2, 58, &attributes, &pair, &combining) == L' ');
+    CHECK(cell(3, 0, &attributes, &pair, &combining) == 0x65e5);
+    CHECK((attributes & A_BOLD) != 0 && (expect_color ? pair != 0 : pair == 0));
+    CHECK(cell(3, 2, &attributes, &pair, &combining) == L'e');
+    CHECK(combining == 0x301 && (attributes & A_BOLD) != 0);
+    CHECK(cell(3, 3, &attributes, &pair, &combining) == L'z');
+    CHECK((attributes & A_BOLD) == 0 && pair == 0);
+    CHECK(wrapped_rows("", 59) == 1);
+    CHECK(wrapped_rows("\002\017", 59) == 1);
+    CHECK(wrapped_rows("abc", 1) == 3);
+    CHECK(wrapped_rows("日", 1) == 1);
+    /* Repeated ring turnover keeps a paused view bounded and drawable. */
+    scroll_history(buffer, 59, 1, 1);
+    for (i = 0; i < POSIRC_HISTORY_CAPACITY * 2; ++i) CHECK(buffer_append(buffer, "replacement") == 0);
+    draw(app, colors, 12, 60);
+    CHECK(buffer->history_count == POSIRC_HISTORY_CAPACITY);
+    CHECK(buffer->scroll < POSIRC_HISTORY_CAPACITY && buffer->scroll_row == 0);
+    buffer_clear(buffer);
+    CHECK(buffer_append(buffer, "") == 0 && buffer_append(buffer, "\002\017") == 0);
+    CHECK(buffer_append(buffer, "after empty lines") == 0);
+    draw(app, colors, 12, 60);
+    CHECK(cell(4, 0, &attributes, &pair, &combining) == L'a');
+}
+
 static void render_case(const char *terminal, int expect_color)
 {
     FILE *output = tmpfile(), *input = tmpfile();
@@ -110,6 +177,7 @@ static void render_case(const char *terminal, int expect_color)
     draw(&app, &colors, 12, 60);
     CHECK(cell(1, 0, &attributes, &pair, &combining) == L'T');
     pane_boundaries(&app, &colors);
+    wrapped_history(&app, &colors, expect_color);
     posirc_app_destroy(&app);
     (void)endwin();
     delscreen(screen);

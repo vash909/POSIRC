@@ -27,6 +27,7 @@ struct posirc_buffer {
     char topic[POSIRC_TEXT_CAPACITY];
     struct posirc_history *history[POSIRC_HISTORY_CAPACITY];
     size_t history_start, history_count, unread, scroll;
+    size_t scroll_row; /* Wrapped rows hidden at the end of the last visible message. */
     char draft[POSIRC_TEXT_CAPACITY];
     size_t cursor, user_scroll;
     struct posirc_user *users;

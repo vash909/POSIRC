@@ -352,7 +352,12 @@ automatic replies or additional persistent allocation is needed.
 
 Sidebars hide on narrow terminals (buffers below 70 columns, users below 100).
 The commands `/buffers`, `/buffer` and `/users` remain available. Long transcript
-lines are clipped, not wrapped. Text is clipped in terminal cells, and sidebar
+messages wrap to the chat pane's width, including unbroken text. UTF-8, combining
+marks and IRC styles are preserved across rows. PageUp/PageDown scroll visual
+rows, including within a message taller than the pane; incoming messages retain
+the paused history position. Resizing reflows the retained messages. Each message
+is stored once in the same bounded history ring; wrapping allocates no copies or
+per-row buffers. Labels, topics and drafts remain clipped to one row. Sidebar
 separators are restored after pane content. A short terminal shows a size notice; ncurses
 resize handling and terminal restoration are tested.
 
@@ -452,6 +457,9 @@ application data is silently retried after a lost connection.
 These measurements cover the dynamically linked development build from the
 performance update. They are not size/RAM measurements of the statically linked
 beta release archives, whose embedded libraries change those costs.
+The charts predate `/list`, `/me` and wrapped history; the structure sizes below
+have been updated for the current source. Wrapped-row scroll positions add one
+`size_t` per buffer (512 bytes across all 64 descriptors on x86-64).
 
 The following compares **`df16176` before optimization** with the updated client
 on the same machine. Both builds include pipe modes; the end-to-end workload
@@ -572,8 +580,8 @@ requirements. Cache capacities alone do not measure hit rates.
 
 | Object / bound | Size on this build | Consequence |
 | --- | ---: | --- |
-| `struct posirc_app` | 277,968 B | Includes all 64 buffer descriptors; excludes pointed-to histories/users and TLS allocations |
-| One `struct posirc_buffer` | 4,320 B | Includes a 2,048 B table of 256 history pointers, drafts and topic |
+| `struct posirc_app` | 278,480 B | Includes all 64 buffer descriptors; excludes pointed-to histories/users and TLS allocations |
+| One `struct posirc_buffer` | 4,328 B | Includes a 2,048 B table of 256 history pointers, drafts, topic and wrapped-row scroll position |
 | One history header | 16 B | Stores allocation capacity and the pending-send token; text follows in the same allocation |
 | One user record | 140 B | 200 users reserve 256 records through geometric growth: 35 KiB per populated channel |
 | Outgoing queue | 64 × 536 B = 33.5 KiB | Fixed storage for frames, lengths and completion metadata, plus separate queue bookkeeping |
@@ -730,6 +738,8 @@ Coverage includes:
 - Separate buffers, unread markers, drafts, user membership and privilege updates.
 - UTF-8 boundaries, malformed sequences, color parsing, CJK/emoji and combining
   characters in actual curses cells, including monochrome fallback.
+- Wrapped history, within-message paging, paused views during incoming traffic,
+  ring turnover, resize reflow and sidebar boundaries at multiple widths.
 - UTF-8 terminal input split across reads and buffer navigation.
 - IRC framing at every split position, 512-byte boundaries, malformed input,
   parameter parsing, case mapping, local commands and transcript wraparound.

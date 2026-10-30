@@ -21,7 +21,7 @@ void buffer_clear(struct posirc_buffer *buffer)
         free(buffer->history[index]);
         buffer->history[index] = NULL;
     }
-    buffer->history_count = buffer->history_start = buffer->scroll = buffer->unread = 0;
+    buffer->history_count = buffer->history_start = buffer->scroll = buffer->scroll_row = buffer->unread = 0;
 }
 
 void buffer_users_clear(struct posirc_buffer *buffer)
@@ -63,7 +63,7 @@ int buffer_append_pending(struct posirc_buffer *buffer, const char *text, unsign
         buffer->history_start = (slot + 1) % POSIRC_HISTORY_CAPACITY;
     else
         ++buffer->history_count;
-    if (buffer->scroll > 0 && buffer->scroll < buffer->history_count - 1) ++buffer->scroll;
+    if ((buffer->scroll > 0 || buffer->scroll_row > 0) && buffer->scroll < buffer->history_count - 1) ++buffer->scroll;
     return 0;
 }
 
