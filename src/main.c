@@ -11,6 +11,7 @@
 
 #include "app.h"
 #include "ui.h"
+#include "pipe.h"
 
 static volatile sig_atomic_t stop_requested;
 
@@ -24,13 +25,15 @@ static void request_stop(int signal_number)
 static void usage(FILE *stream, const char *program)
 {
     fprintf(stream,
-            "Usage: %s [-s server] [-p port] [-n nickname] [-j channel] [-c ca-file]\n"
+            "Usage: %s [-s server] [-p port] [-n nickname] [-j channel] [-c ca-file] [-o]\n"
             "       %s --help | --version\n"
             "  -s server    Connect on startup (otherwise use /connect)\n"
             "  -p port      TLS port, default 6697\n"
             "  -n nickname  Initial nickname, default posirc\n"
             "  -j channel   Join after registration\n"
             "  -c ca-file   PEM trust file instead of system CA paths\n"
+            "  -o           Stream channel messages to stdout; stay connected after stdin EOF\n"
+            "Non-terminal stdin: send literal lines to -j channel; requires -s server.\n"
             "TLS and certificate/hostname verification are always enabled.\n",
             program, program);
 }
@@ -41,7 +44,7 @@ int main(int argc, char **argv)
     struct posirc_app app;
     const char *term, *server = NULL, *port = "6697", *nick = "posirc";
     const char *channel = "", *ca_file = NULL;
-    int option, result;
+    int option, result, pipe_input, pipe_output = 0;
 
     if (argc == 2 && strcmp(argv[1], "--help") == 0) {
         usage(stdout, argv[0]);
@@ -52,13 +55,14 @@ int main(int argc, char **argv)
         return EXIT_SUCCESS;
     }
     opterr = 0;
-    while ((option = getopt(argc, argv, "s:p:n:j:c:h")) != -1) {
+    while ((option = getopt(argc, argv, "s:p:n:j:c:oh")) != -1) {
         switch (option) {
         case 's': server = optarg; break;
         case 'p': port = optarg; break;
         case 'n': nick = optarg; break;
         case 'j': channel = optarg; break;
         case 'c': ca_file = optarg; break;
+        case 'o': pipe_output = 1; break;
         case 'h': usage(stdout, argv[0]); return EXIT_SUCCESS;
         default: usage(stderr, argv[0]); return EXIT_FAILURE;
         }
@@ -69,12 +73,17 @@ int main(int argc, char **argv)
         usage(stderr, argv[0]);
         return EXIT_FAILURE;
     }
-    if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO)) {
+    pipe_input = !isatty(STDIN_FILENO);
+    if ((pipe_input || pipe_output) && (server == NULL || *channel == '\0')) {
+        fputs("POSIRC pipe mode requires -s server and -j channel. Try --help.\n", stderr);
+        return EXIT_FAILURE;
+    }
+    if (!pipe_input && !pipe_output && !isatty(STDOUT_FILENO)) {
         fputs("POSIRC requires an interactive terminal. Try --help.\n", stderr);
         return EXIT_FAILURE;
     }
     term = getenv("TERM");
-    if (term == NULL || term[0] == '\0') {
+    if (!pipe_input && !pipe_output && (term == NULL || term[0] == '\0')) {
         fputs("POSIRC requires TERM to identify the terminal.\n", stderr);
         return EXIT_FAILURE;
     }
@@ -95,6 +104,9 @@ int main(int argc, char **argv)
         perror("POSIRC: SIGPIPE");
         return EXIT_FAILURE;
     }
+    if (pipe_input || pipe_output)
+        return posirc_pipe_run(server, port, nick, channel, ca_file, pipe_input, pipe_output, &stop_requested) == 0
+            ? EXIT_SUCCESS : EXIT_FAILURE;
     posirc_app_init(&app);
     (void)snprintf(app.nick, sizeof app.nick, "%s", nick);
     (void)snprintf(app.autojoin, sizeof app.autojoin, "%s", channel);

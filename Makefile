@@ -9,14 +9,17 @@ CURSES_LIBS = -lncursesw
 TLS_LIBS = -lssl -lcrypto
 
 CORE_OBJS = src/app.o src/net.o src/irc.o src/buffer.o src/text.o
-OBJS = src/main.o src/ui.o $(CORE_OBJS)
+OBJS = src/main.o src/pipe.o src/ui.o $(CORE_OBJS)
 
 all: posirc
 
 posirc: $(OBJS)
 	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(CURSES_LIBS) $(TLS_LIBS) $(LDLIBS)
 
-src/main.o: src/main.c include/buffer.h include/app.h include/irc.h include/ui.h
+src/pipe.o: src/pipe.c include/pipe.h include/net.h include/irc.h include/text.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c src/pipe.c -o $@
+
+src/main.o: src/main.c include/pipe.h include/buffer.h include/app.h include/irc.h include/ui.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c src/main.c -o $@
 
 src/app.o: src/app.c include/buffer.h include/text.h include/app.h include/irc.h include/net.h
@@ -46,7 +49,7 @@ tests/test_irc: tests/test_irc.c src/irc.o src/text.o include/irc.h
 tests/test_net: tests/test_net.c $(CORE_OBJS) include/app.h include/buffer.h include/net.h include/irc.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ tests/test_net.c $(CORE_OBJS) $(TLS_LIBS) $(LDLIBS)
 
-integration-test: tests/test_net FORCE
+integration-test: posirc tests/test_net FORCE
 	./tests/test_net
 
 tests/test_text: tests/test_text.c src/text.o include/text.h

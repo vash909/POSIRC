@@ -470,6 +470,11 @@ static void read_resolution(struct posirc_net *net)
     }
 }
 
+size_t net_pending(const struct posirc_net *net)
+{
+    return net->queue_count;
+}
+
 void net_step(struct posirc_net *net, int input_fd, int timeout_ms)
 {
     struct pollfd descriptors[2];
@@ -497,7 +502,8 @@ void net_step(struct posirc_net *net, int input_fd, int timeout_ms)
         if (net->phase == DRAINING && net->queue_count == 0) {
             /* Best effort close_notify, never wait for the peer's reply. */
             (void)SSL_shutdown(net->tls);
-            net_disconnect(net, "Disconnected.");
+            release_connection(net);
+            emit(net, NET_FINISHED, "Disconnected.");
             return;
         }
     }

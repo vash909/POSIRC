@@ -388,6 +388,7 @@ static void network_event(void *context, enum net_event event, const char *text,
         if (irc_feed(&app->frame, text, length, posirc_app_receive, app) != 0 && net_active(app->net))
             net_disconnect(app->net, "Invalid/oversized IRC frame or failed protocol reply.");
         break;
+    case NET_FINISHED:
     case NET_CLOSED:
         app->registered = 0;
         app->frame.length = 0;

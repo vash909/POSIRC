@@ -130,7 +130,76 @@ static void expect_line(SSL *tls, const char *expected)
     }
 }
 
-enum scenario { CHAT, REJECT, QUEUE, MALFORMED, ABRUPT };
+enum scenario { CHAT, REJECT, QUEUE, MALFORMED, ABRUPT,
+                PIPE_SEND, PIPE_EMPTY, PIPE_INVALID, PIPE_OUTPUT, PIPE_DENIED,
+                PIPE_NICK, PIPE_LIMIT, PIPE_SEND_DENIED, PIPE_BROKEN_OUTPUT, PIPE_FRAGMENT, PIPE_LISTEN };
+
+static void serve_pipe(SSL *tls, enum scenario scenario)
+{
+    char byte, expected[IRC_WIRE_CAPACITY + 1];
+    size_t index;
+    expect_line(tls, "NICK tester\r\n");
+    expect_line(tls, "USER posirc 0 * :POSIRC client\r\n");
+    if (scenario == PIPE_NICK) {
+        server_write(tls, ":srv 433 * tester :Nickname in use\r\n");
+        REQUIRE(SSL_read(tls, &byte, 1) <= 0);
+        return;
+    }
+    server_write(tls, "PING :before-join\r\n:srv 001 tester :Welcome\r\n:srv 422 tester :No MOTD\r\n");
+    expect_line(tls, "PONG :before-join\r\n");
+    expect_line(tls, "JOIN #room\r\n");
+    if (scenario == PIPE_DENIED) {
+        server_write(tls, ":srv 473 tester #room :Invite only\r\n");
+        REQUIRE(SSL_read(tls, &byte, 1) <= 0);
+        return;
+    }
+    pause_ms(30); /* Nothing may be sent before our own JOIN is confirmed. */
+    server_write(tls, ":tester!u@h JOIN :#room\r\n");
+    if (scenario == PIPE_INVALID) {
+        REQUIRE(SSL_read(tls, &byte, 1) <= 0);
+        return;
+    }
+    if (scenario == PIPE_FRAGMENT) {
+        server_write(tls, "PING :while-reading\r\n");
+        expect_line(tls, "PONG :while-reading\r\n");
+        expect_line(tls, "PRIVMSG #room :caffè\r\n");
+    } else if (scenario == PIPE_SEND) {
+        expect_line(tls, "PRIVMSG #room :/quit\r\n");
+        expect_line(tls, "PRIVMSG #room :caffè 日 😀\r\n");
+        for (index = 0; index < 200; ++index) {
+            (void)snprintf(expected, sizeof expected, "PRIVMSG #room :line %lu\r\n", (unsigned long)index);
+            expect_line(tls, expected);
+        }
+        expect_line(tls, "PRIVMSG #room :last without newline\r\n");
+    } else if (scenario == PIPE_LIMIT) {
+        size_t prefix = strlen("PRIVMSG #room :");
+        memcpy(expected, "PRIVMSG #room :", prefix);
+        memset(expected + prefix, 'x', 510 - prefix);
+        memcpy(expected + 510, "\r\n", 3);
+        expect_line(tls, expected);
+    } else if (scenario == PIPE_OUTPUT || scenario == PIPE_BROKEN_OUTPUT || scenario == PIPE_LISTEN) {
+        if (scenario != PIPE_LISTEN) expect_line(tls, "PRIVMSG #room :outgoing\r\n");
+        pause_ms(300); /* Output mode must stay alive after stdin EOF. */
+        server_write(tls, ":alice!u@h PRIVMSG #elsewhere :ignore\r\n"
+                         ":alice!u@h PRIVMSG tester :private\r\n"
+                         ":alice!u@h PRIVMSG #room :\00304caffè 日 😀\017\tend\r\n");
+        if (scenario == PIPE_OUTPUT || scenario == PIPE_LISTEN) {
+            server_write(tls, "PING :still-alive\r\n");
+            expect_line(tls, "PONG :still-alive\r\n");
+            server_write(tls, "ERROR :end output test\r\n");
+        }
+        REQUIRE(SSL_read(tls, &byte, 1) <= 0);
+        return;
+    } else if (scenario == PIPE_SEND_DENIED) {
+        expect_line(tls, "PRIVMSG #room :outgoing\r\n");
+        server_write(tls, ":srv 404 tester #room :Cannot send to channel\r\n");
+        while (SSL_read(tls, &byte, 1) > 0) { /* A final PING may already be queued. */ }
+        return;
+    }
+    expect_line(tls, "PING :posirc-pipe-end\r\n");
+    server_write(tls, ":srv PONG srv :posirc-pipe-end\r\n");
+    expect_line(tls, "QUIT :Leaving POSIRC\r\n");
+}
 
 static void serve(int listener, SSL_CTX *context, enum scenario scenario)
 {
@@ -152,7 +221,9 @@ static void serve(int listener, SSL_CTX *context, enum scenario scenario)
         }
     } else {
         REQUIRE(accepted == 1);
-        if (scenario == QUEUE) {
+        if (scenario >= PIPE_SEND) {
+            serve_pipe(tls, scenario);
+        } else if (scenario == QUEUE) {
             size_t index;
             char expected[IRC_WIRE_CAPACITY + 1];
             memset(expected, 'x', 510);
@@ -357,6 +428,95 @@ static void queue_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file)
     join_server(child);
 }
 
+/* Exercise the actual CLI with redirected descriptors and no TERM. */
+static void pipe_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file,
+                          enum scenario scenario, const char *input, size_t size,
+                          const char *error)
+{
+    char port[16], text[4096];
+    FILE *source = tmpfile(), *output = tmpfile(), *errors = tmpfile();
+    pid_t server, client;
+    int status, broken[2] = {-1, -1}, incoming[2] = {-1, -1};
+    size_t count;
+    REQUIRE(source != NULL && output != NULL && errors != NULL);
+    REQUIRE(fwrite(input, 1, size, source) == size);
+    rewind(source);
+    server = start_server(cert, key, scenario, port, sizeof port, TLS1_2_VERSION);
+    if (scenario == PIPE_BROKEN_OUTPUT) {
+        REQUIRE(pipe(broken) == 0);
+        (void)close(broken[0]); /* No reader: the client's stdout must report EPIPE. */
+    }
+    if (scenario == PIPE_FRAGMENT) REQUIRE(pipe(incoming) == 0);
+    client = fork();
+    REQUIRE(client >= 0);
+    if (client == 0) {
+        (void)alarm(8);
+        REQUIRE(dup2(incoming[0] >= 0 ? incoming[0] : fileno(source), STDIN_FILENO) >= 0);
+        if (incoming[0] >= 0) { (void)close(incoming[0]); (void)close(incoming[1]); }
+        REQUIRE(dup2(broken[1] >= 0 ? broken[1] : fileno(output), STDOUT_FILENO) >= 0);
+        REQUIRE(dup2(fileno(errors), STDERR_FILENO) >= 0);
+        REQUIRE(unsetenv("TERM") == 0);
+        if (scenario == PIPE_OUTPUT || scenario == PIPE_BROKEN_OUTPUT || scenario == PIPE_LISTEN)
+            execl("./posirc", "posirc", "-s", "127.0.0.1", "-p", port, "-n", "tester",
+                  "-j", "#room", "-c", ca_file, "-o", (char *)NULL);
+        else
+            execl("./posirc", "posirc", "-s", "127.0.0.1", "-p", port, "-n", "tester",
+                  "-j", "#room", "-c", ca_file, (char *)NULL);
+        _exit(127);
+    }
+    if (broken[1] >= 0) (void)close(broken[1]);
+    if (incoming[0] >= 0) {
+        (void)close(incoming[0]);
+        REQUIRE(write(incoming[1], "caff\303", 5) == 5);
+        pause_ms(300);
+        REQUIRE(write(incoming[1], "\250\n", 2) == 2);
+        (void)close(incoming[1]);
+    }
+    REQUIRE(waitpid(client, &status, 0) == client);
+    CHECK(WIFEXITED(status) && WEXITSTATUS(status) == (error == NULL ? 0 : 1));
+    rewind(errors);
+    count = fread(text, 1, sizeof text - 1, errors);
+    text[count] = '\0';
+    if (error != NULL) CHECK(strstr(text, error) != NULL);
+    else CHECK(count == 0);
+    rewind(output);
+    count = fread(text, 1, sizeof text - 1, output);
+    text[count] = '\0';
+    if (scenario == PIPE_OUTPUT || scenario == PIPE_LISTEN) CHECK(strcmp(text, "alice\tcaffè 日 😀?end\n") == 0);
+    else CHECK(count == 0);
+    join_server(server);
+    fclose(source); fclose(output); fclose(errors);
+}
+
+static void pipe_scenarios(X509 *cert, EVP_PKEY *key, const char *ca_file, const char *other_ca)
+{
+    char input[4096];
+    size_t used, i;
+    used = (size_t)snprintf(input, sizeof input, "/quit\r\n\ncaffè 日 😀\n");
+    for (i = 0; i < 200; ++i)
+        used += (size_t)snprintf(input + used, sizeof input - used, "line %lu\n", (unsigned long)i);
+    used += (size_t)snprintf(input + used, sizeof input - used, "last without newline");
+    pipe_scenario(cert, key, ca_file, PIPE_SEND, input, used, NULL);
+    pipe_scenario(cert, key, ca_file, PIPE_FRAGMENT, "", 0, NULL);
+    pipe_scenario(cert, key, ca_file, PIPE_EMPTY, "", 0, NULL);
+    memset(input, 'x', sizeof input);
+    used = 510 - strlen("PRIVMSG #room :");
+    pipe_scenario(cert, key, ca_file, PIPE_LIMIT, input, used, NULL);
+    pipe_scenario(cert, key, ca_file, PIPE_INVALID, input, used + 1, "exceeds the IRC limit");
+    pipe_scenario(cert, key, ca_file, PIPE_INVALID, input, sizeof input, "too long");
+    pipe_scenario(cert, key, ca_file, PIPE_INVALID, "bad\0input\n", 10, "NUL byte");
+    pipe_scenario(cert, key, ca_file, PIPE_INVALID, "bad\rinput\n", 10, "valid UTF-8");
+    pipe_scenario(cert, key, ca_file, PIPE_INVALID, "\377\n", 2, "valid UTF-8");
+    pipe_scenario(cert, key, ca_file, PIPE_DENIED, "hello\n", 6, "473");
+    pipe_scenario(cert, key, ca_file, PIPE_NICK, "hello\n", 6, "433");
+    pipe_scenario(cert, key, other_ca, REJECT, "hello\n", 6, "TLS handshake");
+    pipe_scenario(cert, key, ca_file, PIPE_SEND_DENIED, "outgoing\n", 9, "404");
+    pipe_scenario(cert, key, ca_file, PIPE_OUTPUT, "outgoing\n", 9, "end output test");
+    pipe_scenario(cert, key, ca_file, PIPE_LISTEN, "", 0, "end output test");
+    pipe_scenario(cert, key, ca_file, PIPE_BROKEN_OUTPUT, "outgoing\n", 9, "Cannot write stdout");
+    puts("OK: CLI pipe input/output, literal text, UTF-8, CRLF, EOF, queue turnover, limits, TLS and errors");
+}
+
 int main(void)
 {
     EVP_PKEY *ca_key, *server_key, *other_key;
@@ -387,6 +547,7 @@ int main(void)
     app_scenario(valid, server_key, ca_path, ABRUPT, "TLS read", TLS1_2_VERSION, "localhost");
     queue_scenario(valid, server_key, ca_path);
     puts("OK: malformed frames, abrupt close, IP verification, bounded queue and wraparound");
+    pipe_scenarios(valid, server_key, ca_path, other_path);
     CHECK(unlink(ca_path) == 0); CHECK(unlink(other_path) == 0);
     X509_free(dns_only);
     X509_free(ca); X509_free(other_ca); X509_free(valid); X509_free(wrong_name); X509_free(expired);

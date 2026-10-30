@@ -4,7 +4,8 @@
 #include <stddef.h>
 
 struct posirc_net;
-enum net_event { NET_STATUS, NET_READY, NET_DATA, NET_CLOSED };
+/* NET_FINISHED is a successful local drain; NET_CLOSED is any other closure. */
+enum net_event { NET_STATUS, NET_READY, NET_DATA, NET_CLOSED, NET_FINISHED };
 /* Data is borrowed until return. NET_DATA is a byte span; other events carry
  * terminated text. Callbacks may queue writes or disconnect, but not free net. */
 typedef void (*net_callback)(void *, enum net_event, const char *, size_t);
@@ -18,6 +19,8 @@ void net_disconnect(struct posirc_net *net, const char *reason);
 int net_send(struct posirc_net *net, const char *line);
 /* Drain queued data and send TLS close_notify, with a two-second deadline. */
 void net_finish(struct posirc_net *net);
+/* Number of queued frames, including a partially written frame. */
+size_t net_pending(const struct posirc_net *net);
 /* Poll the transport and optionally an input descriptor (-1 to omit).
  * timeout_ms must be nonnegative. All network I/O is nonblocking. */
 void net_step(struct posirc_net *net, int input_fd, int timeout_ms);

@@ -1,21 +1,38 @@
 # POSIRC
 
-POSIRC is a small terminal IRC client written in C99, using POSIX APIs, curses
-and OpenSSL. It connects to one IRC server over verified TLS, supports channels
-and private messages, and provides separate conversation buffers, channel user
-lists, UTF-8 editing and IRC colors.
+POSIRC is a small IRC client written in C99, using POSIX APIs, curses and
+OpenSSL. Use it interactively in a terminal, send text from a Unix pipeline, or
+stream channel messages into another program. Every connection uses verified TLS.
 
-The priorities are portable source, predictable memory use, few dependencies
-and readable code. Networking, IRC parsing, application state and terminal
-rendering are separate modules.
+The terminal interface provides separate conversation buffers, channel user lists,
+UTF-8 editing and IRC colors. Memory use is bounded, histories allocate only as
+needed, and the client requires no scripting runtime.
+
+```sh
+# Interactive client
+./posirc -s irc.azzurra.chat -p 6697 -n mynick -j '#canaletest'
+
+# Send a line and exit
+printf '%s\n' 'blabla' | ./posirc -s irc.azzurra.chat -n mybot -j '#canaletest'
+
+# Receive channel messages as nickname<TAB>text
+./posirc -o -s irc.azzurra.chat -n mylogger -j '#canaletest' </dev/null | tee channel.tsv
+```
+
+Use an available nickname and a channel you can join. Port 6697 is the default.
+
+[Build](#requirements-and-build) · [Connect](#connect) ·
+[Unix pipelines](#unix-pipelines) · [Commands and keys](#commands-and-interface) ·
+[Measured resource use](#measured-resource-use) · [Limits](#verification-and-current-limits)
 
 ## Requirements and build
 
 - A C99 compiler, POSIX-compatible make and a shell.
 - The system C library and a wide-character X/Open Curses implementation, such as ncursesw.
 - OpenSSL headers and libraries exposing the 1.1.1 API or later. Use a maintained
-  OpenSSL release; the tested version is 3.5.7.
-- A terminal with a valid `TERM`, terminal descriptions and a UTF-8 locale.
+  OpenSSL release; tested versions include 3.5.7 and 3.6.5.
+- For the interactive UI: a terminal with a valid `TERM`, terminal descriptions
+  and a UTF-8 locale. Pipe modes need no terminal or `TERM`.
 - A system CA store, or an explicit PEM CA file supplied with `-c`.
 
 On Debian/Ubuntu, the usual build packages are `build-essential`,
@@ -38,7 +55,8 @@ terminal descriptions and temporary streams; it needs a UTF-8 locale but no
 interactive terminal.
 `make integration-test` creates temporary certificates and local TLS servers on
 loopback using ephemeral ports. It needs permission to create sockets and fork
-processes; it never contacts an external IRC server.
+processes; it never contacts an external IRC server. It also runs the real CLI
+with redirected stdin/stdout to check pipe modes, streaming and failure exits.
 
 The default build links `-lncursesw -lssl -lcrypto`. On systems with different
 library names or installation paths, override make variables:
@@ -103,6 +121,77 @@ For a private CA:
 The CA file replaces the default OpenSSL trust paths for every connection in
 that process. The server must still present a valid certificate for the exact
 hostname or IP address used to connect.
+
+## Unix pipelines
+
+| Input / option | Behavior |
+| --- | --- |
+| Terminal stdin, no `-o` | Interactive curses interface |
+| Pipe or file on stdin | Send each nonempty line to `-j channel`, then exit at EOF |
+| `-o` | Stream received channel messages to stdout and stay connected |
+| Pipe or file on stdin plus `-o` | Send and receive; keep listening after stdin EOF |
+
+Both pipe modes require `-s server` and `-j channel`. `-n` selects the nickname,
+`-p` the port (default 6697), and `-c` an optional private CA file.
+`-c` is **not** a channel flag. Quote channel names so the shell does not treat
+`#` as the start of a comment. Use `|` to connect processes: `>> ./posirc` would
+append to the executable file, not run the client.
+
+Send multiple lines or a file:
+
+```sh
+printf '%s\n' 'build started' 'build finished' |
+    ./posirc -s irc.azzurra.chat -n buildbot -j '#canaletest'
+
+./posirc -s irc.azzurra.chat -n buildbot -j '#canaletest' < report.txt
+```
+
+POSIRC waits for TLS verification, IRC registration and confirmation of its own
+JOIN before reading messages from stdin. Each nonempty UTF-8 line becomes one
+`PRIVMSG`; `/quit`, `/join` and other slash-prefixed lines are **literal text** in
+pipe mode. LF and CRLF are accepted, as is a final line without a newline. Empty
+lines are skipped. Embedded NUL/CR, invalid UTF-8 and oversized messages fail
+with an error rather than being split or silently truncated. The 510-byte payload
+limit includes `PRIVMSG`, the channel name and separators; multibyte UTF-8 counts
+in bytes. Earlier valid lines may already have been sent when a later line fails.
+
+Input buffering is fixed-size. When the outgoing queue fills, POSIRC stops
+reading stdin until space is available, allowing backpressure to reach the
+producer. It continues servicing server PINGs while waiting for input. There is
+no automatic flood pacing: large inputs can still exceed a server's limits.
+
+Without `-o`, EOF sends a final PING after the messages, waits for its matching
+PONG, then sends QUIT and drains the TLS queue. Exit status 0 means this sequence
+completed; it does **not** prove that every recipient saw or retained the messages.
+TLS/network errors, IRC error replies (except a missing MOTD), rejected JOINs,
+invalid input, failed output, interruption or timeouts return a nonzero status.
+Registration has a 60-second timeout; JOIN, a stalled full queue and the final
+PONG each have a 30-second limit. Waiting for a live stdin producer has no deadline.
+
+Receive and filter messages:
+
+```sh
+./posirc -o -s irc.azzurra.chat -n mylogger -j '#canaletest' </dev/null |
+    awk -F '\t' '$1 == "alice" { print $2; fflush() }'
+
+# Send a live stream while logging incoming channel messages
+tail -f application.log |
+    ./posirc -o -s irc.azzurra.chat -n logbot -j '#canaletest' > channel.tsv
+```
+
+With `-o`, stdout contains only received `PRIVMSG` records for the selected
+channel, formatted as `nickname<TAB>text<LF>` and flushed after each message.
+IRC styling is removed; tabs and unsafe controls inside fields become `?`.
+UTF-8 is preserved, with invalid incoming sequences replaced. Private messages,
+other channels, notices and JOIN/PART events are excluded. Outgoing messages are
+not locally echoed to stdout. CTCP payloads are sanitized as ordinary text.
+Diagnostics go to stderr, so they do not enter the data pipeline.
+
+`-o` keeps listening after stdin closes; use Ctrl-C or a signal to stop it.
+When stdin is a terminal, `-o` receives only and does not read keyboard input.
+For scripts, use `</dev/null` when there is nothing to send. A closed downstream
+pipe is reported as an output error on the next write. Downstream programs may
+need their own line-buffering options to display results immediately.
 
 ## Commands and interface
 
@@ -237,6 +326,10 @@ application data is silently retried after a lost connection.
 
 ## Measured resource use
 
+The measurements below describe the interactive build identified in
+[results.json](docs/benchmarks/results.json), before the pipe modes were added.
+They are a recorded baseline, not measurements of the new streaming modes.
+
 In this workload POSIRC stayed around **11.3 MiB RSS with one active TLS channel**
 and **13.9 MiB with 20 populated channels**, using about **3% of one CPU core**
 while receiving 1,000 messages/s. Offline idle used **5.9 MiB RSS**.
@@ -318,7 +411,8 @@ See the committed [raw samples](docs/benchmarks/samples.csv),
 
 | File | Responsibility |
 | --- | --- |
-| `src/main.c` | CLI options, terminal preconditions and signal handling |
+| `src/main.c` | CLI options, UI/pipe mode selection and signal handling |
+| `src/pipe.c`, `include/pipe.h` | Bounded stdin streaming, channel TSV output and batch completion |
 | `src/net.c`, `include/net.h` | DNS worker, TCP/TLS state machine, bounded queue and poll |
 | `src/irc.c`, `include/irc.h` | Incremental framing, message parsing and identifier checks |
 | `src/app.c`, `include/app.h` | IRC registration/events, commands and conversation routing |
@@ -328,13 +422,15 @@ See the committed [raw samples](docs/benchmarks/samples.csv),
 | `tests/test_irc.c`, `tests/test_app.c` | Protocol boundaries and application unit tests |
 | `tests/test_buffers.c`, `tests/test_text.c` | Conversation/membership races, Unicode and color parsing |
 | `tests/test_ui.c` | Wide curses cells, colors, combining marks and responsive layout |
-| `tests/test_net.c` | Local TLS server, temporary CA/certificates and integration scenarios |
+| `tests/test_net.c` | Local TLS fixtures, transport integration and real CLI pipe scenarios |
 | `Makefile` | Portable build, tests and cleanup |
 
 ## Verification and current limits
 
-Verified on Linux x86_64 with GCC 14.2.0, GNU make 4.4.1, ncurses 6.5 and
-OpenSSL 3.5.7:
+The current build and pipe tests pass on Linux x86_64 with GCC 16.2.1,
+GNU make 4.4.1, ncursesw 6.6.20251230 and OpenSSL 3.6.5, including ASan/UBSan.
+Earlier interactive verification used GCC 14.2.0, ncurses 6.5 and OpenSSL 3.5.7.
+Coverage includes:
 
 - C99 compilation with strict warnings treated as errors.
 - Separate buffers, unread markers, drafts, user membership and privilege updates.
@@ -345,6 +441,9 @@ OpenSSL 3.5.7:
   parameter parsing, case mapping, local commands and transcript wraparound.
 - TLS 1.2/1.3, IRC registration, fragmented PING, JOIN, channel/private messages,
   NICK, PART and QUIT against a loopback server.
+- CLI pipes: literal slash-prefixed messages, CRLF, empty/final lines, split UTF-8,
+  queue turnover, wire limits, channel filtering, flushed TSV, broken stdout,
+  rejected JOINs/nicknames/sends and untrusted certificates.
 - Rejection of untrusted, expired and wrong-hostname/IP certificates.
 - IP certificate verification, DNS cancellation, queue overflow/wraparound,
   CRLF injection rejection, malformed server frames and abrupt TLS disconnection.
