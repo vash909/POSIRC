@@ -265,6 +265,11 @@ static void serve(int listener, SSL_CTX *context, enum scenario scenario, int re
                              ":alice!u@h PRIVMSG #room :\00304caffè 😀\017 hello\033[31m\r\n");
                 expect_line(tls, "PRIVMSG #room :caffè 日 😀\r\n");
                 expect_line(tls, "PRIVMSG friend :\00304hello friend\017\r\n");
+                expect_line(tls, "LIST\r\n");
+                expect_line(tls, "LIST #room\r\n");
+                server_write(tls, ":srv 321 tester Channel :Users Name\r\n"
+                                  ":srv 322 tester #room 3 :Test topic\r\n"
+                                  ":srv 323 tester :End of LIST\r\n");
                 expect_line(tls, "NICK other\r\n");
                 server_write(tls, ":tester!u@h NICK :other\r\n");
                 expect_line(tls, "PART #room\r\n");
@@ -369,10 +374,15 @@ static void app_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file,
                 }
                 posirc_app_submit(&app, "caffè 日 😀");
                 posirc_app_submit(&app, "/msg friend \00304hello friend\017");
+                posirc_app_submit(&app, "/list");
+                posirc_app_submit(&app, "/list #room");
                 CHECK(history_has(&app, "[queued]"));
                 posirc_app_submit(&app, "/nick other");
                 stage = 1;
             } else if (stage == 1 && strcmp(app.nick, "other") == 0) {
+                CHECK(history_has(&app, "#room | 3 users | Test topic"));
+                CHECK(history_has(&app, "End of channel list."));
+                CHECK(strcmp(app.target, "#room") == 0);
                 CHECK(!history_has(&app, "[queued]"));
                 CHECK(history_has(&app, "caffè 日 😀"));
                 posirc_app_submit(&app, "/part");

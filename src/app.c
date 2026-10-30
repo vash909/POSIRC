@@ -263,6 +263,18 @@ int posirc_app_receive(void *context, char *line)
         }
     } else if (strcmp(message.command, "005") == 0) {
         for (index = 1; index < message.count; ++index) support_token(app, message.params[index]);
+    } else if (strcmp(message.command, "321") == 0) {
+        append_to(app, &app->buffers[0], "Channel list: name | users | topic (latest 256 history entries retained)");
+        return 0;
+    } else if (strcmp(message.command, "322") == 0 && message.count >= 4) {
+        /* Stream LIST into the existing bounded server history. Never create
+         * channel buffers or user lists for channels we have not joined. */
+        log_to(app, &app->buffers[0], "%s | %s users | %s",
+               message.params[1], message.params[2], message.params[3]);
+        return 0;
+    } else if (strcmp(message.command, "323") == 0) {
+        append_to(app, &app->buffers[0], "End of channel list.");
+        return 0;
     } else if (strcmp(message.command, "353") == 0 && message.count >= 4) {
         buffer = posirc_app_find(app, message.params[2]);
         if (buffer != NULL && buffer->joined) names_reply(app, buffer, message.params[3]);
@@ -574,6 +586,7 @@ void posirc_app_submit(struct posirc_app *app, const char *line)
         append_line(app, "/connect host [port]  Connect with verified TLS (default 6697)");
         append_line(app, "/nick nickname        Set or change your nickname");
         append_line(app, "/join #channel [key]  Join a channel; select it after server confirmation");
+        append_line(app, "/list [#channel]     List channels in the server buffer (bounded history)");
         append_line(app, "/part [#channel]     Leave a channel (default: current target)");
         append_line(app, "/query nickname      Select a private conversation");
         append_line(app, "/target name         Select an existing channel or conversation");
@@ -655,6 +668,14 @@ void posirc_app_submit(struct posirc_app *app, const char *line)
             append_line(app, "Usage: /msg target text");
         else
             send_message(app, argument, cursor);
+    } else if (strcmp(command, "/list") == 0) {
+        argument = take_word(&cursor);
+        if (*cursor != '\0' || (argument != NULL && !channel_valid(app, argument)))
+            append_line(app, "Usage: /list [#channel]");
+        else if (!app->registered)
+            append_line(app, "Wait for IRC registration before listing channels.");
+        else
+            (void)send_command(app, "LIST%s%s", argument != NULL ? " " : "", argument != NULL ? argument : "");
     } else if (strcmp(command, "/join") == 0 || strcmp(command, "/part") == 0) {
         int join = strcmp(command, "/join") == 0;
         argument = take_word(&cursor);

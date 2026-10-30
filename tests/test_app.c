@@ -63,6 +63,28 @@ int main(void)
     errors += check("multiple targets rejected", strcmp(app.target, "#room") == 0);
     posirc_app_submit(&app, "/nick evil\r\nJOIN #other");
     errors += check("line injection rejected", strcmp(app.nick, "tester") == 0);
+    {
+        struct posirc_buffer *room = posirc_app_current(&app);
+        size_t users[POSIRC_BUFFER_CAPACITY];
+        char reply[IRC_WIRE_CAPACITY];
+        for (index = 0; index < POSIRC_BUFFER_CAPACITY; ++index) users[index] = app.buffers[index].user_count;
+        posirc_app_submit(&app, "/list");
+        errors += check("offline LIST rejected", strstr(buffer_line(room, room->history_count - 1), "registration") != NULL);
+        posirc_app_submit(&app, "/list nickname");
+        errors += check("invalid LIST target", strstr(buffer_line(room, room->history_count - 1), "Usage: /list") != NULL);
+        posirc_app_submit(&app, "/list #room extra");
+        errors += check("extra LIST argument", strstr(buffer_line(room, room->history_count - 1), "Usage: /list") != NULL);
+        for (index = 0; index < 10000; ++index) {
+            (void)snprintf(reply, sizeof reply, ":srv 322 tester #channel%zu %zu :Topic 日本語", index, index);
+            errors += check("LIST reply", posirc_app_receive(&app, reply) == 0);
+        }
+        errors += check("LIST retains focus", posirc_app_current(&app) == room);
+        errors += check("LIST history bounded", app.buffers[0].history_count == POSIRC_HISTORY_CAPACITY);
+        errors += check("LIST keeps newest result", strstr(buffer_line(&app.buffers[0], POSIRC_HISTORY_CAPACITY - 1), "#channel9999 | 9999 users | Topic 日本語") != NULL);
+        errors += check("LIST creates no channel buffers", posirc_app_find(&app, "#channel9999") == NULL);
+        for (index = 0; index < POSIRC_BUFFER_CAPACITY; ++index)
+            errors += check("LIST creates no user lists", app.buffers[index].user_count == users[index]);
+    }
     posirc_app_submit(&app, "/quit");
     errors += check("quit stops application", !app.running);
 

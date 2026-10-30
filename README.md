@@ -282,6 +282,7 @@ conversation list indicates unread activity.
 | `/connect host [port]` | Resolve and connect using verified TLS; default port 6697 |
 | `/nick nickname` | Set the offline nickname or request a nickname change |
 | `/join #channel [key]` | Join a channel, selecting it on server confirmation |
+| `/list [#channel]` | Request channels; results appear in `/buffer 0` |
 | `/part [#channel]` | Leave a channel; defaults to the current target |
 | `/query nickname` | Select a private-message target |
 | `/target name` | Select a channel or nickname; does not join a channel |
@@ -301,6 +302,38 @@ its history until `/close`. Reconnecting to the same host and port retains
 histories; connecting to a different endpoint clears conversation buffers so
 messages from different servers cannot be mixed. Server status has its own
 buffer. Nickname collisions remain visible; use `/nick anothername` to retry.
+
+`/list` requests the server's channel list; `/list #channel` limits the request
+to one channel. Results go to the server buffer without changing focus or
+creating channel/user lists. The server history retains its latest 256 entries,
+including list headers and other server events, so large lists overwrite older
+results. Prefer a filtered request on large networks. Reply handling uses the
+existing history ring with constant memory as the number of results grows.
+
+A [reproducible LIST replay](benchmarks/list.c), measured with GCC 16.2.1 `-O2`
+on a Ryzen 7 5800X (five runs, median process CPU time), gives:
+
+| LIST replies | CPU time | Retained history allocation | New conversation/user entries |
+| --- | --- | --- | --- |
+| 256 | 0.054 ms | 17.5 KiB | 0 / 0 |
+| 10,000 | 1.980 ms | 17.5 KiB | 0 / 0 |
+| 100,000 | 19.736 ms | 17.5 KiB | 0 / 0 |
+
+[Raw samples](docs/benchmarks/list.csv) include all five runs. The replay uses
+fixed-length channel names and short UTF-8 topics; the allocation counts history
+entry headers and reserved text bytes, excluding allocator overhead, fixed app
+state and shared libraries. This is not process RSS or an end-to-end TUI/network
+measurement: TLS and redraw costs are excluded. Longer topics require larger
+ring slots, up to 256 entries of 1,024 text bytes plus entry headers. There is
+no catalogue, per-channel allocation or sorting step; processing is linear in
+the received bytes. Reproduce from the source root:
+
+```sh
+cc -std=c99 -O2 -Iinclude benchmarks/list.c \
+    src/app.c src/buffer.c src/irc.c src/text.c src/net.c \
+    -lssl -lcrypto -o /tmp/posirc-list-bench
+/tmp/posirc-list-bench
+```
 
 The left sidebar lists channels and queries, and the right sidebar lists the
 current channel's users with their highest known privilege prefix. User lists
