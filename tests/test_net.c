@@ -6,6 +6,7 @@
 #endif
 
 #include <arpa/inet.h>
+#include <netinet/in.h>
 #include <errno.h>
 #include <signal.h>
 #include <stdio.h>

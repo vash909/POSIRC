@@ -33,10 +33,13 @@ static void render_case(const char *terminal, int expect_color)
     attr_t attributes;
     short pair;
     wchar_t combining;
+    char terminal_name[64];
     int text_column = 21 + (int)strlen("[#room] <alice> ");
     CHECK(output != NULL && input != NULL);
     if (output == NULL || input == NULL) exit(EXIT_FAILURE);
-    screen = newterm(terminal, output, input);
+    /* NetBSD's X/Open curses declaration takes a mutable terminal name. */
+    (void)snprintf(terminal_name, sizeof terminal_name, "%s", terminal);
+    screen = newterm(terminal_name, output, input);
     CHECK(screen != NULL);
     if (screen == NULL) exit(EXIT_FAILURE);
     colors_init(&colors);
