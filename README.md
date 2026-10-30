@@ -310,6 +310,8 @@ creating channel/user lists. The server history retains its latest 256 entries,
 including list headers and other server events, so large lists overwrite older
 results. Prefer a filtered request on large networks. Reply handling uses the
 existing history ring with constant memory as the number of results grows.
+Each server-buffer entry occupies one screen row: long entries are clipped with
+`***` at the right edge, keeping channel names and topic beginnings visible.
 
 A [reproducible LIST replay](benchmarks/list.c), measured with GCC 16.2.1 `-O2`
 on a Ryzen 7 5800X (five runs, median process CPU time), gives:
@@ -351,8 +353,8 @@ envelope; oversized actions are rejected before queueing. No CTCP catalogue,
 automatic replies or additional persistent allocation is needed.
 
 Sidebars hide on narrow terminals (buffers below 70 columns, users below 100).
-The commands `/buffers`, `/buffer` and `/users` remain available. Long transcript
-messages wrap to the chat pane's width, including unbroken text. UTF-8, combining
+The commands `/buffers`, `/buffer` and `/users` remain available. Long channel and
+query messages wrap to the chat pane's width, including unbroken text. UTF-8, combining
 marks and IRC styles are preserved across rows. PageUp/PageDown scroll visual
 rows, including within a message taller than the pane; incoming messages retain
 the paused history position. Resizing reflows the retained messages. Each message
@@ -360,6 +362,10 @@ is stored once in the same bounded history ring; wrapping allocates no copies or
 per-row buffers. Labels, topics and drafts remain clipped to one row. Sidebar
 separators are restored after pane content. A short terminal shows a size notice; ncurses
 resize handling and terminal restoration are tested.
+
+The server buffer uses one row per message, including `/list` results. A trailing
+`***` marks text that does not fit; paging moves by messages there. Clipping is
+display-only: the retained history text stays available for a wider terminal.
 
 | Key | Action |
 | --- | --- |

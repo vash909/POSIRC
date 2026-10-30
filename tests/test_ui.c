@@ -135,6 +135,72 @@ static void wrapped_history(struct posirc_app *app, struct ui_colors *colors, in
     CHECK(cell(4, 0, &attributes, &pair, &combining) == L'a');
 }
 
+static void server_history(struct posirc_app *app, struct ui_colors *colors)
+{
+    struct posirc_buffer *buffer = &app->buffers[0];
+    char topic[301], reply[IRC_WIRE_CAPACITY], line[128];
+    const char *prefix = "#alpha | 12 users | First topic ";
+    attr_t attributes;
+    short pair;
+    wchar_t combining;
+    size_t i;
+    posirc_app_select(app, 0);
+    buffer_clear(buffer);
+    memset(topic, 'x', sizeof topic - 1); topic[sizeof topic - 1] = '\0';
+    receive(app, ":srv 321 posirc Channel :Users Name");
+    (void)snprintf(reply, sizeof reply, ":srv 322 posirc #alpha 12 :First topic %s", topic);
+    receive(app, reply);
+    (void)snprintf(reply, sizeof reply, ":srv 322 posirc #beta 34 :Second topic %s", topic);
+    receive(app, reply);
+    receive(app, ":srv 323 posirc :End of LIST");
+    draw(app, colors, 12, 60);
+    for (i = 0; i < strlen(prefix); ++i)
+        CHECK(cell(3, (int)i, &attributes, &pair, &combining) == (wchar_t)prefix[i]);
+    for (i = 56; i < 59; ++i) {
+        CHECK(cell(3, (int)i, &attributes, &pair, &combining) == L'*');
+        CHECK(cell(4, (int)i, &attributes, &pair, &combining) == L'*');
+    }
+    CHECK(cell(4, 0, &attributes, &pair, &combining) == L'#');
+    CHECK(cell(4, 1, &attributes, &pair, &combining) == L'b');
+    CHECK(cell(5, 0, &attributes, &pair, &combining) == L'E');
+    CHECK(cell(6, 0, &attributes, &pair, &combining) == L' ');
+    CHECK(strstr(buffer_line(buffer, 1), topic) != NULL); /* Only the display is clipped. */
+    draw(app, colors, 12, 120);
+    CHECK(cell(3, 21, &attributes, &pair, &combining) == L'#');
+    CHECK(cell(4, 21, &attributes, &pair, &combining) == L'#');
+    for (i = 116; i < 119; ++i)
+        CHECK(cell(3, (int)i, &attributes, &pair, &combining) == L'*');
+    draw(app, colors, 7, 60);
+    CHECK(cell(2, 0, &attributes, &pair, &combining) == L'#');
+    scroll_history(buffer, 59, 1, 1);
+    draw(app, colors, 7, 60);
+    CHECK(buffer->scroll == 1 && buffer->scroll_row == 0);
+    CHECK(cell(2, 0, &attributes, &pair, &combining) == L'C');
+    CHECK(cell(4, 1, &attributes, &pair, &combining) == L'b');
+    scroll_history(buffer, 59, 10000, 0);
+    CHECK(buffer->scroll == 0 && buffer->scroll_row == 0);
+    buffer_clear(buffer);
+    memset(line, 'x', 59);
+    (void)snprintf(line + 59, sizeof line - 59, "\002\017");
+    CHECK(buffer_append(buffer, line) == 0);
+    memset(line, 'x', 55);
+    (void)snprintf(line + 55, sizeof line - 55, "\002\00304e\314\201long remainder");
+    CHECK(buffer_append(buffer, line) == 0);
+    draw(app, colors, 12, 60);
+    CHECK(cell(2, 58, &attributes, &pair, &combining) == L'x'); /* Exact fit, no marker. */
+    CHECK(cell(3, 55, &attributes, &pair, &combining) == L'e');
+    CHECK(combining == 0x301 && (attributes & A_BOLD) != 0);
+    CHECK(cell(3, 56, &attributes, &pair, &combining) == L'*');
+    CHECK(pair == 0 && (attributes & A_BOLD) == 0); /* Marker has a neutral style. */
+    buffer_clear(buffer);
+    memset(line, 'x', 55);
+    (void)snprintf(line + 55, sizeof line - 55, "日long remainder");
+    CHECK(buffer_append(buffer, line) == 0);
+    draw(app, colors, 12, 60);
+    CHECK(cell(2, 55, &attributes, &pair, &combining) == L' '); /* No half-wide glyph. */
+    CHECK(cell(2, 56, &attributes, &pair, &combining) == L'*');
+}
+
 static void render_case(const char *terminal, int expect_color)
 {
     FILE *output = tmpfile(), *input = tmpfile();
@@ -178,6 +244,7 @@ static void render_case(const char *terminal, int expect_color)
     CHECK(cell(1, 0, &attributes, &pair, &combining) == L'T');
     pane_boundaries(&app, &colors);
     wrapped_history(&app, &colors, expect_color);
+    server_history(&app, &colors);
     posirc_app_destroy(&app);
     (void)endwin();
     delscreen(screen);

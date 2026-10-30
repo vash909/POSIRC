@@ -192,11 +192,28 @@ static size_t wrapped_rows(const char *text, int width)
     return count != 0 ? count : 1;
 }
 
+static void draw_server_line(struct ui_colors *colors, int row, int column, int width, const char *text)
+{
+    struct text_reader reader;
+    uint32_t ignored;
+    int marker;
+    text_reader_init(&reader, text);
+    (void)text_row(&reader, width, NULL, 0, 0, A_NORMAL);
+    if (!text_next(&reader, &ignored)) {
+        draw_text(colors, row, column, width, text, A_NORMAL, 1);
+        return;
+    }
+    marker = width < 3 ? width : 3;
+    draw_text(colors, row, column, width - marker, text, A_NORMAL, 1);
+    draw_text(colors, row, column + width - marker, marker, "***", A_NORMAL, 0);
+}
+
 static void normalize_scroll(struct posirc_buffer *buffer, int width)
 {
     size_t count;
     if (buffer->history_count == 0) { buffer->scroll = buffer->scroll_row = 0; return; }
     if (buffer->scroll >= buffer->history_count) buffer->scroll = buffer->history_count - 1;
+    if (buffer->type == BUFFER_SERVER) { buffer->scroll_row = 0; return; }
     count = wrapped_rows(buffer_line(buffer, buffer->history_count - buffer->scroll - 1), width);
     if (buffer->scroll_row >= count) buffer->scroll_row = count - 1;
 }
@@ -207,6 +224,12 @@ static void scroll_history(struct posirc_buffer *buffer, int width, size_t rows,
 {
     normalize_scroll(buffer, width);
     if (buffer->history_count == 0) return;
+    if (buffer->type == BUFFER_SERVER) {
+        size_t available = buffer->history_count - buffer->scroll - 1;
+        if (older) buffer->scroll += rows < available ? rows : available;
+        else buffer->scroll = buffer->scroll > rows ? buffer->scroll - rows : 0;
+        return;
+    }
     while (rows > 0) {
         size_t count = wrapped_rows(buffer_line(buffer, buffer->history_count - buffer->scroll - 1), width);
         size_t available = older ? count - buffer->scroll_row - 1 : buffer->scroll_row;
@@ -232,6 +255,12 @@ static void draw_history(struct posirc_buffer *buffer, struct ui_colors *colors,
     int row = 2;
     normalize_scroll(buffer, width);
     end = buffer->history_count - buffer->scroll;
+    if (buffer->type == BUFFER_SERVER) {
+        first = end > (size_t)height ? end - (size_t)height : 0;
+        for (index = first; index < end; ++index)
+            draw_server_line(colors, row++, column, width, buffer_line(buffer, index));
+        return;
+    }
     first = end;
     hidden = buffer->scroll_row;
     while (first > 0 && visible < (size_t)height) {
