@@ -76,6 +76,30 @@ requires all 19 build/test jobs in the original run to have succeeded, verifies
 each archive's source revision, and publishes that exact revision and its source
 archive. This retries publication without rebuilding or mixing revisions.
 
+## Arch Linux package
+
+The source package builds `v0.3.0-beta.1` as `0.3.0beta1-1`, under
+`GPL-3.0-only`. To build the recipe in this repository, install `base-devel`,
+then run:
+
+```sh
+cd packaging/aur
+makepkg -si
+posirc --version
+```
+
+Review [PKGBUILD](packaging/aur/PKGBUILD) before building. It verifies SHA-256
+checksums, respects your `makepkg.conf` compiler/linker flags, and runs the unit,
+curses, local TLS and CLI pipe tests. Tests need loopback sockets and a UTF-8
+locale. The installed executable links dynamically to Arch's OpenSSL and ncurses;
+`pacman` manages those dependencies and the CA certificates. Documentation and
+benchmark figures are installed in `/usr/share/doc/posirc/`.
+
+The recipe permits `x86_64`, `i686`, `aarch64`, `armv7h`, `armv6h` and `riscv64`
+for Arch and compatible derivatives with the required packages. The AUR package
+has been built and tested locally on x86-64; the release CI matrix above describes
+separate upstream portability tests, not AUR builds on every architecture.
+
 ## Requirements and build
 
 - A C99 compiler, POSIX-compatible make and a shell.
