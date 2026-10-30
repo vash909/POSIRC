@@ -275,7 +275,10 @@ OpenSSL 3.5.7:
   UndefinedBehaviorSanitizer. Leak detection is disabled in this environment
   because LeakSanitizer cannot run under its ptrace supervision.
 
-The source targets POSIX.1-2001 with X/Open Curses and OpenSSL. BSD, macOS,
+GitHub Actions runs the build, unit, curses and TLS integration tests on Linux
+with GCC and Clang, and on macOS with Clang and Homebrew dependencies.
+
+The source targets POSIX.1-2001 with X/Open Curses and OpenSSL. BSD,
 other Unix platforms and other curses implementations have not been tested.
 Only IPv4 loopback transport has been exercised by the current integration
 suite; IPv6 address handling is implemented but still needs an IPv6 test host.

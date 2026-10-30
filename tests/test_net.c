@@ -218,7 +218,7 @@ static pid_t start_server(X509 *cert, EVP_PKEY *key, enum scenario scenario,
     REQUIRE(listener >= 0);
     memset(&address, 0, sizeof address);
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    REQUIRE(inet_pton(AF_INET, "127.0.0.1", &address.sin_addr) == 1);
     REQUIRE(bind(listener, (struct sockaddr *)&address, sizeof address) == 0);
     REQUIRE(getsockname(listener, (struct sockaddr *)&address, &length) == 0);
     REQUIRE(listen(listener, 1) == 0);
