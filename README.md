@@ -66,6 +66,12 @@ exact tested executables and matching source, uploads all assets as a draft, the
 publishes. The container image and actions are pinned; package versions are
 recorded because package repositories can receive security updates.
 
+If publication fails after the builds pass, dispatch the workflow with
+`publish=true` and `reuse_run` set to that release run's numeric ID. The CI
+requires all 19 build/test jobs in the original run to have succeeded, verifies
+each archive's source revision, and publishes that exact revision and its source
+archive. This retries publication without rebuilding or mixing revisions.
+
 ## Requirements and build
 
 - A C99 compiler, POSIX-compatible make and a shell.

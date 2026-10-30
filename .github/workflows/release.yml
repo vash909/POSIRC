@@ -8,6 +8,11 @@ on:
         required: true
         type: boolean
         default: false
+      reuse_run:
+        description: Optional release run ID whose 19 build/test jobs already passed
+        required: false
+        type: string
+        default: ''
   push:
     tags: ['v*-beta.*']
 
@@ -20,6 +25,7 @@ concurrency:
 
 jobs:
   linux:
+    if: inputs.reuse_run == ''
     name: Linux ${{ matrix.arch }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 40
@@ -62,6 +68,7 @@ jobs:
           retention-days: 14
 
   macos:
+    if: inputs.reuse_run == ''
     name: macOS ${{ matrix.arch }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 25
@@ -93,6 +100,7 @@ jobs:
           retention-days: 14
 
   freebsd:
+    if: inputs.reuse_run == ''
     name: FreeBSD ${{ matrix.arch }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -125,6 +133,7 @@ jobs:
           retention-days: 14
 
   openbsd:
+    if: inputs.reuse_run == ''
     name: OpenBSD ${{ matrix.arch }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -157,6 +166,7 @@ jobs:
           retention-days: 14
 
   netbsd:
+    if: inputs.reuse_run == ''
     name: NetBSD ${{ matrix.arch }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -191,22 +201,57 @@ jobs:
   publish:
     name: Publish complete beta
     needs: [linux, macos, freebsd, openbsd, netbsd]
-    if: startsWith(github.ref, 'refs/tags/') || inputs.publish
+    if: >-
+      !cancelled() && (startsWith(github.ref, 'refs/tags/') || inputs.publish) &&
+      (inputs.reuse_run != '' || (needs.linux.result == 'success' &&
+      needs.macos.result == 'success' && needs.freebsd.result == 'success' &&
+      needs.openbsd.result == 'success' && needs.netbsd.result == 'success'))
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: write
+      actions: read
     steps:
+      - name: Select and verify tested source revision
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REUSE_RUN: ${{ inputs.reuse_run }}
+        run: |
+          set -euo pipefail
+          source_sha="$GITHUB_SHA"
+          run_id="$GITHUB_RUN_ID"
+          if [ -n "$REUSE_RUN" ]; then
+            [[ "$REUSE_RUN" =~ ^[0-9]+$ ]]
+            run_id="$REUSE_RUN"
+            gh api "repos/$GH_REPO/actions/runs/$run_id" > run.json
+            jq -e --arg repo "$GH_REPO" '
+              .head_repository.full_name == $repo and
+              .path == ".github/workflows/release.yml" and
+              (.event == "workflow_dispatch" or .event == "push") and
+              .status == "completed"' run.json
+            gh api "repos/$GH_REPO/actions/runs/$run_id/jobs?per_page=100" > jobs.json
+            jq -e '[.jobs[] | select(.name != "Publish complete beta")] |
+              length == 19 and all(.status == "completed" and .conclusion == "success")' jobs.json
+            source_sha=$(jq -r .head_sha run.json)
+          fi
+          echo "sha=$source_sha" >> "$GITHUB_OUTPUT"
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+          ref: ${{ steps.source.outputs.sha }}
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.source.outputs.run_id }}
           pattern: posirc-*
           merge-multiple: true
           path: dist
       - name: Validate assets, create source archive and publish prerelease
         env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
@@ -217,17 +262,17 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then test "$GITHUB_REF_NAME" = "$tag"; fi
           test "$(find dist -name '*.tar.gz' | wc -l)" -eq 19
           for archive in dist/*.tar.gz; do
-            tar -tzf "$archive" | grep -q '/BUILD-INFO.txt$'
-            tar -xOzf "$archive" --wildcards '*/BUILD-INFO.txt' | grep -Fx "Source commit: $GITHUB_SHA"
+            tar -tzf "$archive" | grep '/BUILD-INFO.txt$' > /dev/null
+            tar -xOzf "$archive" --wildcards '*/BUILD-INFO.txt' | grep -Fx "Source commit: $SOURCE_SHA"
           done
           git archive --format=tar.gz --prefix="posirc-$version/" \
-            -o "dist/posirc-$version-source.tar.gz" "$GITHUB_SHA"
+            -o "dist/posirc-$version-source.tar.gz" "$SOURCE_SHA"
           (cd dist && sha256sum *.tar.gz > SHA256SUMS)
           test -f "docs/releases/$tag.md"
           existing=$(gh api "repos/$GH_REPO/commits/$tag" --jq .sha 2>/dev/null || true)
-          if [ -n "$existing" ]; then test "$existing" = "$GITHUB_SHA"; fi
+          if [ -n "$existing" ]; then test "$existing" = "$SOURCE_SHA"; fi
           # Upload as a draft first; only a complete asset set becomes public.
           gh release create "$tag" dist/*.tar.gz dist/SHA256SUMS \
-            --target "$GITHUB_SHA" --title "POSIRC $version" \
+            --target "$SOURCE_SHA" --title "POSIRC $version" \
             --notes-file "docs/releases/$tag.md" --prerelease --draft
           gh release edit "$tag" --draft=false --prerelease --latest=false
