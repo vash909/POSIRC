@@ -25,6 +25,36 @@ Use an available nickname and a channel you can join. Port 6697 is the default.
 [Unix pipelines](#unix-pipelines) · [Commands and keys](#commands-and-interface) ·
 [Measured resource use](#measured-resource-use) · [Limits](#verification-and-current-limits)
 
+## Beta downloads
+
+The first prerelease is [v0.3.0-beta.1](https://github.com/vash909/POSIRC/releases/tag/v0.3.0-beta.1).
+The release pipeline builds and executes the full test suite for these targets:
+
+| System | CPU targets | Package |
+| --- | --- | --- |
+| Linux | x86-64, x86, ARM64, ARMv7, ARMv6, RISC-V 64, ppc64le, s390x | Static musl executable with OpenSSL and ncurses embedded |
+| macOS 15+ | Apple Silicon / ARM64, Intel / x86-64 | OpenSSL and ncurses embedded; system Apple libraries remain dynamic |
+
+Linux x86-64/ARM64 and both macOS targets use native runners; Linux x86 uses
+compatibility mode and the remaining Linux targets execute under QEMU. Emulation
+is explicitly recorded in each archive's `BUILD-INFO.txt`. Linux binaries do not
+require glibc or separately installed OpenSSL/ncurses shared libraries, but still
+need CA certificates and terminal descriptions. macOS binaries are ad-hoc signed,
+not Apple notarized; use `-c` for a CA bundle if the default location is unavailable.
+
+Download the matching `.tar.gz`, extract it, and run `./posirc --version`.
+`SHA256SUMS`, dependency versions and third-party notices accompany the binaries.
+Static dependencies are updated by installing a new POSIRC release. See the
+[installation instructions](docs/releases/INSTALL.txt) and
+[beta release notes](docs/releases/v0.3.0-beta.1.md).
+
+The [release workflow](.github/workflows/release.yml) can run without publication
+(`workflow_dispatch`, `publish=false`) or publish a prerelease after **all ten
+build/test jobs pass** (`publish=true` or a matching beta tag). It packages the
+exact tested executables and matching source, uploads all assets as a draft, then
+publishes. The container image and actions are pinned; package versions are
+recorded because package repositories can receive security updates.
+
 ## Requirements and build
 
 - A C99 compiler, POSIX-compatible make and a shell.
@@ -328,6 +358,10 @@ TLS close-notify is best effort, without waiting for the peer's reply. No
 application data is silently retried after a lost connection.
 
 ## Measured resource use
+
+These measurements cover the dynamically linked development build from the
+performance update. They are not size/RAM measurements of the statically linked
+beta release archives, whose embedded libraries change those costs.
 
 The following compares **`df16176` before optimization** with the updated client
 on the same machine. Both builds include pipe modes; the end-to-end workload

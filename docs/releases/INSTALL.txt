@@ -1,0 +1,31 @@
+POSIRC beta binaries
+
+Extract the archive and run ./posirc --version, then ./posirc --help.
+Place posirc in a directory on your PATH if desired; no installer is required.
+
+Linux archives contain a statically linked musl executable, including OpenSSL
+and ncurses. Choose your CPU architecture; the binary does not require glibc
+or shared OpenSSL/ncurses libraries. A working CA store (usually the
+ca-certificates package), terminal database and UTF-8 locale are still needed.
+If your trust-store location differs, use -c /path/to/ca-bundle.pem.
+
+macOS archives require macOS 15 or later on the matching CPU. OpenSSL and
+ncurses are linked into the executable; Homebrew is not needed at runtime.
+These community beta executables are ad-hoc signed, not Apple notarized.
+Your system may require approval before running downloaded software.
+For a CA bundle use -c /path/to/ca-bundle.pem if default paths are unavailable.
+
+Example (quote the channel name):
+  ./posirc -s irc.example.net -p 6697 -n yournick -j '#channel'
+
+All connections require verified TLS. The -c option selects a CA file, not a
+channel. Use -j for the channel. See README.md for terminal and Unix pipe modes.
+
+SHA256SUMS verifies archive integrity. BUILD-INFO.txt and packages.txt record
+how this particular executable was built and tested; licenses/ contains the
+notices for embedded third-party components. Static dependencies are updated
+by installing a newer POSIRC release, not by upgrading system shared libraries.
+
+Tests run natively on x86-64, ARM64 and macOS runners; other Linux targets run
+under QEMU or host CPU compatibility mode as indicated in BUILD-INFO.txt.
+Emulation tests are not a claim of testing on every physical device or kernel.

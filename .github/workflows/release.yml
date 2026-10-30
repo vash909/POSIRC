@@ -1,0 +1,137 @@
+name: Beta release
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the tested artifacts as a GitHub prerelease
+        required: true
+        type: boolean
+        default: false
+  push:
+    tags: ['v*-beta.*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beta-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  linux:
+    name: Linux ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86_64, platform: linux/amd64, runner: ubuntu-24.04, execution: native }
+          - { arch: x86, platform: linux/386, runner: ubuntu-24.04, execution: x86-compatibility }
+          - { arch: aarch64, platform: linux/arm64, runner: ubuntu-24.04-arm, execution: native }
+          - { arch: armv7, platform: linux/arm/v7, runner: ubuntu-24.04, execution: QEMU }
+          - { arch: armhf, platform: linux/arm/v6, runner: ubuntu-24.04, execution: QEMU }
+          - { arch: riscv64, platform: linux/riscv64, runner: ubuntu-24.04, execution: QEMU }
+          - { arch: ppc64le, platform: linux/ppc64le, runner: ubuntu-24.04, execution: QEMU }
+          - { arch: s390x, platform: linux/s390x, runner: ubuntu-24.04, execution: QEMU }
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+        if: matrix.execution == 'QEMU'
+      - name: Build, execute tests and package static binary
+        env:
+          RELEASE_ARCH: ${{ matrix.arch }}
+          RELEASE_PLATFORM: ${{ matrix.platform }}
+          RELEASE_EXECUTION: ${{ matrix.execution }}
+        run: |
+          docker run --rm --platform "$RELEASE_PLATFORM" \
+            -v "$PWD:/src" -w /src \
+            -e GITHUB_SHA -e RELEASE_ARCH -e RELEASE_EXECUTION \
+            -e RELEASE_OS=linux -e RELEASE_TARGET="linux-$RELEASE_ARCH-musl" \
+            alpine:3.22@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f \
+            sh scripts/release-build.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: posirc-linux-${{ matrix.arch }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  macos:
+    name: macOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: arm64, runner: macos-15 }
+          - { arch: x86_64, runner: macos-15-intel }
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install build dependencies
+        run: brew install openssl@3 ncurses pkgconf
+      - name: Build, execute tests and package binary
+        env:
+          RELEASE_OS: macos
+          RELEASE_ARCH: ${{ matrix.arch }}
+          RELEASE_TARGET: macos15-${{ matrix.arch }}
+          RELEASE_EXECUTION: native
+        run: sh scripts/release-build.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: posirc-macos-${{ matrix.arch }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  publish:
+    name: Publish complete beta
+    needs: [linux, macos]
+    if: startsWith(github.ref, 'refs/tags/') || inputs.publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: posirc-*
+          merge-multiple: true
+          path: dist
+      - name: Validate assets, create source archive and publish prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          version=$(sed -n 's/^#define POSIRC_VERSION "\([^"]*\)"/\1/p' include/app.h)
+          tag="v$version"
+          case "$version" in *-beta.[0-9]*) ;; *) exit 1 ;; esac
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then test "$GITHUB_REF_NAME" = "$tag"; fi
+          test "$(find dist -name '*.tar.gz' | wc -l)" -eq 10
+          for archive in dist/*.tar.gz; do
+            tar -tzf "$archive" | grep -q '/BUILD-INFO.txt$'
+            tar -xOzf "$archive" --wildcards '*/BUILD-INFO.txt' | grep -Fx "Source commit: $GITHUB_SHA"
+          done
+          git archive --format=tar.gz --prefix="posirc-$version/" \
+            -o "dist/posirc-$version-source.tar.gz" "$GITHUB_SHA"
+          (cd dist && sha256sum *.tar.gz > SHA256SUMS)
+          test -f "docs/releases/$tag.md"
+          existing=$(gh api "repos/$GH_REPO/commits/$tag" --jq .sha 2>/dev/null || true)
+          if [ -n "$existing" ]; then test "$existing" = "$GITHUB_SHA"; fi
+          # Upload as a draft first; only a complete asset set becomes public.
+          gh release create "$tag" dist/*.tar.gz dist/SHA256SUMS \
+            --target "$GITHUB_SHA" --title "POSIRC $version" \
+            --notes-file "docs/releases/$tag.md" --prerelease --draft
+          gh release edit "$tag" --draft=false --prerelease --latest=false
