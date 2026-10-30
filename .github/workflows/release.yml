@@ -269,8 +269,9 @@ jobs:
             -o "dist/posirc-$version-source.tar.gz" "$SOURCE_SHA"
           (cd dist && sha256sum *.tar.gz > SHA256SUMS)
           test -f "docs/releases/$tag.md"
-          existing=$(gh api "repos/$GH_REPO/commits/$tag" --jq .sha 2>/dev/null || true)
-          if [ -n "$existing" ]; then test "$existing" = "$SOURCE_SHA"; fi
+          if existing=$(gh api "repos/$GH_REPO/commits/$tag" --jq .sha 2>/dev/null); then
+            test "$existing" = "$SOURCE_SHA"
+          fi
           # Upload as a draft first; only a complete asset set becomes public.
           gh release create "$tag" dist/*.tar.gz dist/SHA256SUMS \
             --target "$SOURCE_SHA" --title "POSIRC $version" \
