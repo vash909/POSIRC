@@ -1,3 +1,4 @@
+#general purpose gitignore template 
 *.o
 /posirc
 /tests/test_app
