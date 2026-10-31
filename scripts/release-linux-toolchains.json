@@ -363,6 +363,11 @@
       "gcc": "15.3.0"
     },
     "buildroot_commit": "48bfc2c656979dbbb24277ffc6746ea7a6af4a50",
-    "config": "scripts/release-xtensaeb.config"
+    "config": "scripts/release-xtensaeb.config",
+    "binutils_isa_module": {
+      "qemu_commit": "84f07211cc5b4fc6a371559bf8a5de4fb068e648",
+      "core": "test_kc705_be",
+      "sha256": "953cda24820aaaf6bc9e9154f6c36b8d1d3190ad5c83abaa3ea30a113d5d11bd"
+    }
   }
 ]

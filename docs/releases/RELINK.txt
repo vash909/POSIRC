@@ -12,6 +12,9 @@ To modify/rebuild the C library and relink POSIRC:
 2. In Buildroot, copy the desired TARGET.buildroot.config to .config, run
    make olddefconfig, and follow its uClibc build recipe using your changed
    source (the Buildroot local-source override can select that source tree).
+   For xtensaeb, run make host-binutils-extract first and copy the supplied
+   xtensaeb-binutils-isa-module.c over output/build/host-binutils-*/bfd/xtensa-modules.c.
+   This aligns instruction encoding with the big-endian processor profile.
    make sdk generates a compiler/sysroot containing the rebuilt library.
 3. Extract POSIRC's matching source. In scripts/release-linux-toolchains.json,
    point your target's SDK URL at the rebuilt SDK (file:// works) and replace

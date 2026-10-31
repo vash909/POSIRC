@@ -15,6 +15,9 @@ fetch https://toolchains.bootlin.com/downloads/releases/sources/uclibc-1.0.59/uC
 fetch https://codeload.github.com/bootlin/buildroot-toolchains/tar.gz/48bfc2c656979dbbb24277ffc6746ea7a6af4a50 \
     "$stage/buildroot-toolchains-48bfc2c656979dbbb24277ffc6746ea7a6af4a50.tar.gz" \
     189155cfd0f82b7b7938b306ca2926b68af177b68adcb8a786a737f7bf40c0bd
+fetch https://raw.githubusercontent.com/qemu/qemu/84f07211cc5b4fc6a371559bf8a5de4fb068e648/target/xtensa/core-test_kc705_be/xtensa-modules.c.inc \
+    "$stage/xtensaeb-binutils-isa-module.c" \
+    953cda24820aaaf6bc9e9154f6c36b8d1d3190ad5c83abaa3ea30a113d5d11bd
 for archive in dist/posirc-"$version"-linux-*-uclibc.tar.gz; do
     target=${archive#dist/posirc-$version-linux-}
     target=${target%-uclibc.tar.gz}

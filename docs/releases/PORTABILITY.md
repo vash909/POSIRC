@@ -77,7 +77,11 @@ SPARC32 and both Xtensa SDKs use uClibc-ng 1.0.59. The FSF big-endian SDK is
 built from the pinned Buildroot tree in CI; other Bootlin SDKs are prebuilt.
 GCC's builtin big-endian configuration has 32 address registers and enables
 MUL32, DIV32 and S32C1I. QEMU's older `fsf` model has 64 registers and lacks
-those instructions; `test_kc705_be` matches the compiler's ISA/ABI instead. Hexagon uses the SDK's
+those instructions; `test_kc705_be` matches the compiler's ISA/ABI instead.
+Stock binutils also contains a generated little-endian ISA table despite its
+big-endian default configuration. The SDK replaces that table with the pinned
+QEMU core's big-endian ISA module before building the assembler/linker. The
+source kit includes the module and the exact reconstruction steps. Hexagon uses the SDK's
 `hexagon-v1.2.4-apr-2026` musl fork and LLVM compiler runtime.
 The release also supplies a companion uClibc source archive with the matching
 Buildroot recipes/patches and per-target configurations, alongside POSIRC's
