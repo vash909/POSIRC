@@ -26,6 +26,11 @@
 
 /* Entire integration harness is C. Certificates and loopback listeners are
  * temporary; no external IRC server, certificate authority or shell is used. */
+/* Slow ISA emulation can spend several minutes generating the three RSA
+ * fixture keys. Keep the normal deadline, with a CI-only compile-time override. */
+#ifndef POSIRC_TEST_TIMEOUT
+#define POSIRC_TEST_TIMEOUT 120
+#endif
 static int failures;
 #define CHECK(condition) do { if (!(condition)) { \
     fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #condition); ++failures; \
@@ -643,7 +648,7 @@ int main(void)
     X509 *ca, *valid, *wrong_name, *expired, *other_ca, *dns_only;
     char ca_path[] = "/tmp/posirc-test-ca-XXXXXX";
     char other_path[] = "/tmp/posirc-test-other-XXXXXX";
-    (void)alarm(120);
+    (void)alarm(POSIRC_TEST_TIMEOUT);
     (void)signal(SIGPIPE, SIG_IGN);
     ca_key = new_key(); server_key = new_key(); other_key = new_key();
     ca = certificate(ca_key, NULL, ca_key, "POSIRC test CA", NULL, 0);

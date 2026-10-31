@@ -39,7 +39,9 @@ cross_prefix=${compiler%gcc}
 if [ "$RELEASE_ARCH" = hexagon ]; then
     cross_prefix=${compiler%clang}
     export PATH="$(dirname "$compiler"):$PATH"
-    sudo env RELEASE_ARCH="$RELEASE_ARCH" POSIRC_QEMU="$(dirname "$compiler")/qemu-hexagon" python3 scripts/release-binfmt.py
+    if [ -f "$(dirname "$compiler")/qemu-hexagon" ]; then
+        sudo env RELEASE_ARCH="$RELEASE_ARCH" POSIRC_QEMU="$(dirname "$compiler")/qemu-hexagon" python3 scripts/release-binfmt.py
+    fi
 fi
 triple=$($compiler -dumpmachine)
 linkflags=-static
@@ -116,7 +118,7 @@ if [ ! -f "$prefix/complete" ]; then
     fi
     touch "$prefix/complete"
 fi
-flags="-std=c99 -O2 -Wall -Wextra -Wpedantic -Werror $extra_cflags"
+flags="-std=c99 -O2 -Wall -Wextra -Wpedantic -Werror -DPOSIRC_TEST_TIMEOUT=900 $extra_cflags"
 make clean
 make all test ui-test integration-test CC="$compiler" CFLAGS="$flags" \
     CPPFLAGS="-Iinclude -I$prefix/include -I$prefix/include/ncursesw" LDFLAGS="$linkflags" \
