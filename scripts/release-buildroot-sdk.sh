@@ -24,7 +24,7 @@ curl -4 -fsSL --connect-timeout 20 --retry 3 \
 printf '%s  %s\n' 953cda24820aaaf6bc9e9154f6c36b8d1d3190ad5c83abaa3ea30a113d5d11bd "$work/xtensa-modules.c" | sha256sum -c -
 isa_module=$(find "$work/source/output/build" -path '*/bfd/xtensa-modules.c' | head -1)
 test -n "$isa_module"
-cp "$work/xtensa-modules.c" "$isa_module"
+{ printf '#include "ansidecl.h"\n'; cat "$work/xtensa-modules.c"; } > "$isa_module"
 make -C "$work/source" -j2 sdk
 sdk=$(find "$work/source/output/images" -name '*_sdk-buildroot.tar.gz' | head -1)
 test -n "$sdk"

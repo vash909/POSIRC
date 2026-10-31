@@ -18,6 +18,7 @@ fetch https://codeload.github.com/bootlin/buildroot-toolchains/tar.gz/48bfc2c656
 fetch https://raw.githubusercontent.com/qemu/qemu/84f07211cc5b4fc6a371559bf8a5de4fb068e648/target/xtensa/core-test_kc705_be/xtensa-modules.c.inc \
     "$stage/xtensaeb-binutils-isa-module.c" \
     953cda24820aaaf6bc9e9154f6c36b8d1d3190ad5c83abaa3ea30a113d5d11bd
+sed -i '1i#include "ansidecl.h"' "$stage/xtensaeb-binutils-isa-module.c"
 for archive in dist/posirc-"$version"-linux-*-uclibc.tar.gz; do
     target=${archive#dist/posirc-$version-linux-}
     target=${target%-uclibc.tar.gz}
