@@ -242,5 +242,9 @@
   {
     "target": "linux-hexagon-musl",
     "job": "Linux extra hexagon"
+  },
+  {
+    "target": "linux-xtensaeb-uclibc",
+    "job": "Linux extra xtensaeb"
   }
 ]

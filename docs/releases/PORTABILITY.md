@@ -3,7 +3,7 @@
 The release manifest in `scripts/release-targets.json` is the exact binary asset
 set. All of its targets must pass before publication; a successful cross-link
 alone is insufficient. This release expands the original nineteen packages to
-sixty-one, with the same application functionality throughout.
+sixty-two, with the same application functionality throughout.
 
 ## What runs on every target
 
@@ -65,6 +65,7 @@ verified TLS, certificate checks and both tested protocol versions remain enable
 | `sparc` | SPARC V8 Linux, big-endian, 32-bit pointers; uClibc-ng |
 | `sparc32plus` | SPARC Linux with V9 instructions and a 32-bit ABI; uClibc-ng |
 | `xtensa` | Xtensa dc233c little-endian; configured core ISA, not generic ESP hardware |
+| `xtensaeb` | Xtensa stock FSF big-endian Linux; SDK built from pinned Buildroot sources |
 | `hexagon` | Hexagon Linux/musl, 32-bit; Qualcomm LLVM 22.1.8 SDK |
 | `loongarch64` | openEuler 24.03 LTS SP4's native LoongArch64 ABI and shared libraries |
 
@@ -72,7 +73,8 @@ The glibc builds use Ubuntu 24.04 cross packages and require glibc 2.39+.
 OpenSSL/ncurses and GCC runtime helpers are embedded; the C library stays dynamic.
 The CI generates UTF-8 locale data in the target's byte order: host x86 locale
 files cannot simply be reused on big-endian glibc targets.
-SPARC32 and Xtensa SDKs use uClibc-ng 1.0.59. Hexagon uses the SDK's
+SPARC32 and both Xtensa SDKs use uClibc-ng 1.0.59. The FSF big-endian SDK is
+built from the pinned Buildroot tree in CI; other Bootlin SDKs are prebuilt. Hexagon uses the SDK's
 `hexagon-v1.2.4-apr-2026` musl fork and LLVM compiler runtime.
 The release also supplies a companion uClibc source archive with the matching
 Buildroot recipes/patches and per-target configurations, alongside POSIRC's
@@ -102,18 +104,14 @@ an ad-hoc signature. Tests execute on native Apple Silicon and Intel runners.
 
 ## Research boundaries
 
-The [project's portability list](https://xzgroup.net/posirc.html) also includes
-Xtensa big-endian. A release requires a working target
-userspace, compatible compiler/sysroot, an emulator CPU configuration and a
-complete passing suite. It does not require shipping every compiler backend.
+Every OS/CPU combination and both byte orders in the
+[project's portability list](https://xzgroup.net/posirc.html) is covered by the
+release matrix. A release requires a working userspace, compatible compiler/
+sysroot, an emulator CPU configuration and a complete passing suite.
 
-- Xtensa big-endian: a source-built SDK for the stock FSF core is being probed.
-  It must pass the complete suite before joining the release matrix. The
-  prebuilt Bootlin lx60 SDK targets the little-endian dc233c configuration;
-  compiler, C library and emulator must agree on the configured core.
-- MIPS N64 musl: the original SDK download host is unreachable from the GitHub
-  runners. The published N64 packages instead use tested glibc cross toolchains;
-  both byte orders remain covered, with all client features enabled.
+The original MIPS N64 musl SDK host is unreachable from GitHub runners.
+N64 packages instead use tested glibc cross toolchains; both byte orders
+remain covered, with all client features enabled.
 
 A bare-metal Hexagon or Xtensa compiler cannot supply POSIX sockets, curses,
 TLS trust-store access and a Unix terminal. The published Hexagon and Xtensa

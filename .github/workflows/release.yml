@@ -322,11 +322,11 @@ jobs:
     if: inputs.reuse_run == ''
     name: Linux extra ${{ matrix.arch }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        arch: ["aarch64_be", "armebv7", "riscv32", "powerpc", "powerpc64", "mips", "mipsel", "mips64n32", "mips64eln32", "microblaze", "microblazeel", "or1k", "sh4", "sh4eb", "m68k", "mips64", "mips64el", "alpha", "hppa", "sparc64", "sparc", "sparc32plus", "xtensa", "hexagon"]
+        arch: ["aarch64_be", "armebv7", "riscv32", "powerpc", "powerpc64", "mips", "mipsel", "mips64n32", "mips64eln32", "microblaze", "microblazeel", "or1k", "sh4", "sh4eb", "m68k", "mips64", "mips64el", "alpha", "hppa", "sparc64", "sparc", "sparc32plus", "xtensa", "hexagon", "xtensaeb"]
     env:
       RELEASE_ARCH: ${{ matrix.arch }}
     steps:
@@ -334,9 +334,15 @@ jobs:
         with:
           persist-credentials: false
       - name: Install build tools
-        run: sudo apt-get update && sudo apt-get install -y gcc make perl xz-utils curl python3 file binutils qemu-user-static binfmt-support
+        run: sudo apt-get update && sudo apt-get install -y gcc make perl xz-utils curl python3 file binutils qemu-user-static binfmt-support build-essential bison flex texinfo rsync bc cpio gawk wget unzip patch
       - name: Register the pinned QEMU user interpreters
         run: bash scripts/release-qemu.sh
+      - name: Cache the source-built Xtensa FSF SDK
+        if: matrix.arch == 'xtensaeb'
+        uses: actions/cache@3edfce9056124e459a23f683a21433670d47daca
+        with:
+          path: cross/xtensaeb-sdk.tar.gz
+          key: posirc-xtensaeb-sdk-v1-${{ hashFiles('scripts/release-buildroot-sdk.sh', 'scripts/release-xtensaeb.config') }}
       - id: dependencies
         uses: actions/cache@3edfce9056124e459a23f683a21433670d47daca
         with:
