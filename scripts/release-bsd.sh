@@ -27,7 +27,7 @@ if grep -E '/usr/local/|/usr/pkg/|not found' "$stage/dependencies.txt"; then
     echo 'Unexpected external runtime dependency' >&2
     exit 1
 fi
-cp posirc README.md "$stage/"
+cp posirc README.md LICENSE "$stage/"
 cp docs/releases/INSTALL.txt "$stage/INSTALL.txt"
 {
     printf 'POSIRC version: %s\nSource commit: %s\nTarget: %s\n' "$version" "$GITHUB_SHA" "$RELEASE_TARGET"

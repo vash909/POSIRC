@@ -73,7 +73,7 @@ curl --fail --location --retry 3 \
 curl --fail --location --retry 3 \
     "https://raw.githubusercontent.com/ThomasDickey/ncurses-snapshots/$ncurses_tag/COPYING" \
     -o "$stage/licenses/ncurses-COPYING"
-cp posirc README.md "$stage/"
+cp posirc README.md LICENSE "$stage/"
 cp docs/releases/INSTALL.txt "$stage/INSTALL.txt"
 {
     printf 'POSIRC version: %s\nSource commit: %s\nTarget: %s\n' "$version" "$GITHUB_SHA" "$RELEASE_TARGET"

@@ -1,0 +1,48 @@
+name: Additional BSD CPUs
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bsd:
+    name: ${{ matrix.os }} ${{ matrix.arch }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: openbsd, release: '7.9', arch: riscv64 }
+          - { os: openbsd, release: '7.9', arch: sparc64 }
+          - { os: netbsd, release: '11.0', arch: riscv64 }
+    env:
+      RELEASE_OS: ${{ matrix.os }}
+      RELEASE_ARCH: ${{ matrix.arch }}
+      RELEASE_TARGET: ${{ matrix.os }}${{ matrix.release }}-${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - if: matrix.os == 'openbsd'
+        uses: vmactions/openbsd-vm@83787c3b60a6fa74abb5448c1f9aee1c83a148e0
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-bsd.sh
+      - if: matrix.os == 'netbsd'
+        uses: vmactions/netbsd-vm@c854a06481914625f405b40f6e0b2ac5b6407b50
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-bsd.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: posirc-probe-${{ env.RELEASE_TARGET }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
