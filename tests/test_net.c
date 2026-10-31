@@ -23,11 +23,11 @@
 
 #include "app.h"
 #include "net.h"
+#include "tls_test_keys.h"
 
 /* Entire integration harness is C. Certificates and loopback listeners are
  * temporary; no external IRC server, certificate authority or shell is used. */
-/* Slow ISA emulation can spend several minutes generating the three RSA
- * fixture keys. Keep the normal deadline, with a CI-only compile-time override. */
+/* Keep a finite deadline, with a CI-only override for slow ISA emulation. */
 #ifndef POSIRC_TEST_TIMEOUT
 #define POSIRC_TEST_TIMEOUT 120
 #endif
@@ -41,13 +41,15 @@ static int failures;
 
 static EVP_PKEY *new_key(void)
 {
-    EVP_PKEY_CTX *context = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
-    EVP_PKEY *key = NULL;
-    REQUIRE(context != NULL);
-    REQUIRE(EVP_PKEY_keygen_init(context) == 1);
-    REQUIRE(EVP_PKEY_CTX_set_rsa_keygen_bits(context, 2048) == 1);
-    REQUIRE(EVP_PKEY_keygen(context, &key) == 1);
-    EVP_PKEY_CTX_free(context);
+    static size_t index;
+    BIO *source;
+    EVP_PKEY *key;
+    REQUIRE(index < sizeof test_rsa_keys / sizeof test_rsa_keys[0]);
+    source = BIO_new_mem_buf(test_rsa_keys[index++], -1);
+    REQUIRE(source != NULL);
+    key = PEM_read_bio_PrivateKey(source, NULL, NULL, NULL);
+    BIO_free(source);
+    REQUIRE(key != NULL);
     return key;
 }
 
