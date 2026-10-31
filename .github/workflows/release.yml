@@ -9,7 +9,7 @@ on:
         type: boolean
         default: false
       reuse_run:
-        description: Optional release run ID whose 19 build/test jobs already passed
+        description: Optional release run ID whose complete build/test matrix already passed
         required: false
         type: string
         default: ''
@@ -99,113 +99,289 @@ jobs:
           compression-level: 0
           retention-days: 14
 
-  freebsd:
+  bsd:
     if: inputs.reuse_run == ''
-    name: FreeBSD ${{ matrix.arch }}
+    name: ${{ matrix.os }} ${{ matrix.arch }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64, aarch64, riscv64, powerpc64]
+        include:
+          - {"os": "freebsd", "release": "14.4", "arch": "x86_64"}
+          - {"os": "freebsd", "release": "14.4", "arch": "aarch64"}
+          - {"os": "freebsd", "release": "14.4", "arch": "riscv64"}
+          - {"os": "freebsd", "release": "14.4", "arch": "powerpc64"}
+          - {"os": "openbsd", "release": "7.9", "arch": "x86_64"}
+          - {"os": "openbsd", "release": "7.9", "arch": "aarch64"}
+          - {"os": "openbsd", "release": "7.9", "arch": "riscv64"}
+          - {"os": "openbsd", "release": "7.9", "arch": "sparc64"}
+          - {"os": "netbsd", "release": "10.1", "arch": "x86_64"}
+          - {"os": "netbsd", "release": "10.1", "arch": "aarch64"}
+          - {"os": "netbsd", "release": "10.1", "arch": "sparc64"}
+          - {"os": "netbsd", "release": "11.0", "arch": "riscv64"}
+    env:
+      RELEASE_OS: ${{ matrix.os }}
+      RELEASE_ARCH: ${{ matrix.arch }}
+      RELEASE_TARGET: ${{ matrix.os }}${{ matrix.release }}-${{ matrix.arch }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      - name: Build and test in FreeBSD VM
-        uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1
-        env:
-          RELEASE_OS: freebsd
-          RELEASE_ARCH: ${{ matrix.arch }}
-          RELEASE_TARGET: freebsd14.4-${{ matrix.arch }}
+      - if: matrix.os == 'freebsd'
+        uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc
         with:
-          release: '14.4'
+          release: ${{ matrix.release }}
           arch: ${{ matrix.arch }}
           sync: scp
-          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-bsd.sh
+      - if: matrix.os == 'openbsd'
+        uses: vmactions/openbsd-vm@83787c3b60a6fa74abb5448c1f9aee1c83a148e0
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-bsd.sh
+      - if: matrix.os == 'netbsd'
+        uses: vmactions/netbsd-vm@c854a06481914625f405b40f6e0b2ac5b6407b50
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
           run: sh scripts/release-bsd.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: posirc-freebsd-${{ matrix.arch }}
+          name: posirc-${{ env.RELEASE_TARGET }}
           path: dist/*.tar.gz
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
 
-  openbsd:
+  unix:
     if: inputs.reuse_run == ''
-    name: OpenBSD ${{ matrix.arch }}
+    name: ${{ matrix.os }} ${{ matrix.arch }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64, aarch64]
+        include:
+          - {"os": "dragonflybsd", "release": "6.4.2", "arch": "x86_64", "target": "dragonflybsd6.4.2-x86_64"}
+          - {"os": "midnightbsd", "release": "4.0.8", "arch": "x86_64", "target": "midnightbsd4.0.8-x86_64"}
+          - {"os": "ghostbsd", "release": "26.2", "arch": "x86_64", "target": "ghostbsd26.2-x86_64"}
+          - {"os": "hardenedbsd", "release": "15", "arch": "x86_64", "target": "hardenedbsd15-x86_64"}
+          - {"os": "opnsense", "release": "26.7", "arch": "x86_64", "target": "opnsense26.7-x86_64"}
+          - {"os": "nextbsd", "release": "continuous", "arch": "x86_64", "target": "nextbsdcontinuous-x86_64"}
+          - {"os": "solaris", "release": "11.4-gcc-14", "arch": "x86_64", "target": "solaris11.4-gcc-14-x86_64"}
+          - {"os": "omnios", "release": "r151058-build", "arch": "x86_64", "target": "omniosr151058-build-x86_64"}
+          - {"os": "openindiana", "release": "202604-build", "arch": "x86_64", "target": "openindiana202604-build-x86_64"}
+          - {"os": "tribblix", "release": "0m41.1", "arch": "x86_64", "target": "tribblix0m41.1-x86_64"}
+          - {"os": "hurd", "release": "2025", "arch": "x86_64", "target": "hurd2025-x86_64"}
+          - {"os": "hurd", "release": "2025", "arch": "i386", "target": "hurd2025-i386"}
+          - {"os": "haiku", "release": "r1beta6", "arch": "x86_64", "target": "haikur1beta6-x86_64"}
+          - {"os": "openeuler", "release": "24.03-LTS-SP4", "arch": "loongarch64", "target": "openeuler24.03-LTS-SP4-loongarch64"}
+    env:
+      RELEASE_OS: ${{ matrix.os }}
+      RELEASE_ARCH: ${{ matrix.arch }}
+      RELEASE_TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      - name: Build and test in OpenBSD VM
-        uses: vmactions/openbsd-vm@f1ca8bc8ecc5b6ef7218e5b914836e067e1546d3 # v1
-        env:
-          RELEASE_OS: openbsd
-          RELEASE_ARCH: ${{ matrix.arch }}
-          RELEASE_TARGET: openbsd7.9-${{ matrix.arch }}
+      - name: Build and test in dragonflybsd
+        if: matrix.os == 'dragonflybsd'
+        uses: vmactions/dragonflybsd-vm@ef89b159d5b4837913b1bb7f6450402c49891a48
         with:
-          release: '7.9'
+          release: ${{ matrix.release }}
           arch: ${{ matrix.arch }}
           sync: scp
-          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET
-          run: sh scripts/release-bsd.sh
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in midnightbsd
+        if: matrix.os == 'midnightbsd'
+        uses: vmactions/midnightbsd-vm@8d049010700d278253fdbfb0f91f52e7d412ac89
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in ghostbsd
+        if: matrix.os == 'ghostbsd'
+        uses: vmactions/ghostbsd-vm@eb670421808e957f982536294270c1017d468fa1
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in hardenedbsd
+        if: matrix.os == 'hardenedbsd'
+        uses: vmactions/hardenedbsd-vm@f3748739801a89034c4d7147fe148bc9413b6b02
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in opnsense
+        if: matrix.os == 'opnsense'
+        uses: vmactions/opnsense-vm@c0b8dac79e53b1274c6d6cb0b1553aa87a5fa0c2
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in nextbsd
+        if: matrix.os == 'nextbsd'
+        uses: vmactions/nextbsd-vm@24825c5b4b5e99c6d16180de275955402eab5a32
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in solaris
+        if: matrix.os == 'solaris'
+        uses: vmactions/solaris-vm@214234520e38ecddf4606ecebe0e4afe34563248
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in omnios
+        if: matrix.os == 'omnios'
+        uses: vmactions/omnios-vm@76277fb0d771c7c27523b920539ab726e89ff215
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in openindiana
+        if: matrix.os == 'openindiana'
+        uses: vmactions/openindiana-vm@2ba4a6402f8310f96c3df443d203af14aa466ab2
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in tribblix
+        if: matrix.os == 'tribblix'
+        uses: vmactions/tribblix-vm@d90c5e13770ce20ec021f4d8da2bdcad48525f4a
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in hurd
+        if: matrix.os == 'hurd'
+        uses: vmactions/hurd-vm@59828763b3140b82fdcee69e71940d43539cb030
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in haiku
+        if: matrix.os == 'haiku'
+        uses: vmactions/haiku-vm@865b2c0c73d7574be04eab36e5fbe81cfb3676e9
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in openeuler
+        if: matrix.os == 'openeuler'
+        uses: vmactions/openeuler-vm@b3d69608d9cc31b06fa0bc11609515bafa860544
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: posirc-openbsd-${{ matrix.arch }}
+          name: posirc-${{ matrix.target }}
           path: dist/*.tar.gz
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
 
-  netbsd:
+  cross:
     if: inputs.reuse_run == ''
-    name: NetBSD ${{ matrix.arch }}
+    name: Linux extra ${{ matrix.arch }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64, aarch64, sparc64]
+        arch: ["aarch64_be", "armebv7", "riscv32", "powerpc", "powerpc64", "mips", "mipsel", "mips64n32", "mips64eln32", "microblaze", "microblazeel", "or1k", "sh4", "sh4eb", "m68k", "mips64", "mips64el", "alpha", "hppa", "sparc64", "sparc", "sparc32plus", "xtensa", "hexagon"]
+    env:
+      RELEASE_ARCH: ${{ matrix.arch }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      - name: Build and test in NetBSD VM
-        uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1
-        env:
-          RELEASE_OS: netbsd
-          RELEASE_ARCH: ${{ matrix.arch }}
-          RELEASE_TARGET: netbsd10.1-${{ matrix.arch }}
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y gcc make perl xz-utils curl python3 file binutils qemu-user-static binfmt-support
+      - name: Register the pinned QEMU user interpreters
+        run: bash scripts/release-qemu.sh
+      - id: dependencies
+        uses: actions/cache@3edfce9056124e459a23f683a21433670d47daca
         with:
-          release: '10.1'
-          arch: ${{ matrix.arch }}
-          sync: scp
-          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET
-          run: sh scripts/release-bsd.sh
+          path: cross/prefix/${{ matrix.arch }}
+          key: posirc-cross-v1-${{ matrix.arch }}-${{ hashFiles('scripts/release-cross.sh', 'scripts/release-linux-toolchains.json') }}
+      - name: Build dependencies and run complete client test suite
+        run: bash scripts/release-cross.sh
+      - uses: actions/cache/save@3edfce9056124e459a23f683a21433670d47daca
+        if: always() && steps.dependencies.outputs.cache-hit != 'true' && hashFiles('cross/prefix/**/complete') != ''
+        with:
+          path: cross/prefix/${{ matrix.arch }}
+          key: posirc-cross-v1-${{ matrix.arch }}-${{ hashFiles('scripts/release-cross.sh', 'scripts/release-linux-toolchains.json') }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: posirc-netbsd-${{ matrix.arch }}
+          name: posirc-linux-extra-${{ matrix.arch }}
           path: dist/*.tar.gz
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
+
+  verify:
+    name: Verify complete artifacts
+    needs: [linux, macos, bsd, unix, cross]
+    if: >-
+      !cancelled() && inputs.reuse_run == '' &&
+      needs.linux.result == 'success' && needs.macos.result == 'success' &&
+      needs.bsd.result == 'success' && needs.unix.result == 'success' &&
+      needs.cross.result == 'success'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: posirc-*
+          merge-multiple: true
+          path: dist
+      - name: Verify every target, source revision and archive contents
+        run: python3 scripts/release-verify.py assets dist "$GITHUB_SHA"
 
   publish:
     name: Publish complete beta
-    needs: [linux, macos, freebsd, openbsd, netbsd]
+    needs: [verify]
     if: >-
       !cancelled() && (startsWith(github.ref, 'refs/tags/') || inputs.publish) &&
-      (inputs.reuse_run != '' || (needs.linux.result == 'success' &&
-      needs.macos.result == 'success' && needs.freebsd.result == 'success' &&
-      needs.openbsd.result == 'success' && needs.netbsd.result == 'success'))
+      (inputs.reuse_run != '' || needs.verify.result == 'success')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -232,8 +408,18 @@ jobs:
               (.event == "workflow_dispatch" or .event == "push") and
               .status == "completed"' run.json
             gh api "repos/$GH_REPO/actions/runs/$run_id/jobs?per_page=100" > jobs.json
-            jq -e '[.jobs[] | select(.name != "Publish complete beta")] |
-              length == 19 and all(.status == "completed" and .conclusion == "success")' jobs.json
+            source_sha=$(jq -r .head_sha run.json)
+            gh api "repos/$GH_REPO/contents/scripts/release-targets.json?ref=$source_sha" \
+              --jq .content | base64 --decode > targets.json
+            python3 - <<'PYVERIFY'
+          import json
+          expected = {r['job'] for r in json.load(open('targets.json'))}
+          expected.add('Verify complete artifacts')
+          jobs = [j for j in json.load(open('jobs.json'))['jobs'] if j['name'] != 'Publish complete beta']
+          assert len(jobs) == len(expected), 'Incomplete build matrix'
+          assert {j['name'] for j in jobs} == expected, 'Unexpected build jobs'
+          assert all(j['status'] == 'completed' and j['conclusion'] == 'success' for j in jobs), 'Build/test failure'
+          PYVERIFY
             source_sha=$(jq -r .head_sha run.json)
           fi
           echo "sha=$source_sha" >> "$GITHUB_OUTPUT"
@@ -260,11 +446,7 @@ jobs:
           tag="v$version"
           case "$version" in *-beta.[0-9]*) ;; *) exit 1 ;; esac
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then test "$GITHUB_REF_NAME" = "$tag"; fi
-          test "$(find dist -name '*.tar.gz' | wc -l)" -eq 19
-          for archive in dist/*.tar.gz; do
-            tar -tzf "$archive" | grep '/BUILD-INFO.txt$' > /dev/null
-            tar -xOzf "$archive" --wildcards '*/BUILD-INFO.txt' | grep -Fx "Source commit: $SOURCE_SHA"
-          done
+          python3 scripts/release-verify.py assets dist "$SOURCE_SHA"
           git archive --format=tar.gz --prefix="posirc-$version/" \
             -o "dist/posirc-$version-source.tar.gz" "$SOURCE_SHA"
           (cd dist && sha256sum *.tar.gz > SHA256SUMS)

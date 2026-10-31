@@ -6,7 +6,7 @@ on:
         description: JSON array of CPU targets
         type: string
         required: true
-        default: '["aarch64_be", "armebv7", "riscv32", "powerpc", "powerpc64", "mips", "mipsel", "mips64n32", "mips64eln32", "microblaze", "microblazeel", "or1k", "sh4", "sh4eb", "m68k", "mips64", "mips64el"]'
+        default: '["aarch64_be", "armebv7", "riscv32", "powerpc", "powerpc64", "mips", "mipsel", "mips64n32", "mips64eln32", "microblaze", "microblazeel", "or1k", "sh4", "sh4eb", "m68k", "mips64", "mips64el", "alpha", "hppa", "sparc64", "sparc", "sparc32plus", "xtensa", "hexagon"]'
 permissions:
   contents: read
 jobs:

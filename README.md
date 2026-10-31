@@ -31,50 +31,61 @@ Use an available nickname and a channel you can join. Port 6697 is the default.
 
 ## Beta downloads
 
-The first prerelease is [v0.3.0-beta.1](https://github.com/vash909/POSIRC/releases/tag/v0.3.0-beta.1).
-The release pipeline builds and executes the full test suite for these targets:
+The current prerelease is [v0.3.1-beta.2](https://github.com/vash909/POSIRC/releases/tag/v0.3.1-beta.2).
+Every binary in the release passes unit, configuration, real curses rendering,
+local TLS 1.2/1.3 and real CLI pipe tests on its target ISA and operating system.
 
-| System | CPU targets | Package |
+| System | CPU targets | Runtime libraries |
 | --- | --- | --- |
-| Linux | x86-64, x86 (i686), ARM64, ARMv7, ARMv6, RISC-V 64, ppc64le, s390x | Static musl executable with OpenSSL and ncurses embedded |
-| macOS 15+ | Apple Silicon / ARM64, Intel / x86-64 | OpenSSL and ncurses embedded; system Apple libraries remain dynamic |
-| FreeBSD 14.4 | x86-64, ARM64, RISC-V 64, PowerPC 64 big-endian | Dynamic base-system libraries |
-| OpenBSD 7.9 | x86-64, ARM64 | Dynamic base-system libraries, including LibreSSL |
-| NetBSD 10.1 | x86-64, ARM64, SPARC64 | Dynamic base-system libraries |
+| Linux / musl | x86-64, x86 (i686), ARM64 LE/BE, ARMv7 LE/BE, ARMv6, RISC-V 32/64, PowerPC 32 BE and 64 BE/LE, s390x, MIPS32 LE/BE, MIPS64 N32 LE/BE, MicroBlaze LE/BE, OpenRISC, SuperH LE/BE, m68k, Hexagon | Static executable with OpenSSL and wide ncurses embedded |
+| Linux / glibc | Alpha, PA-RISC, SPARC64, MIPS64 N64 LE/BE | glibc 2.39+; OpenSSL and wide ncurses embedded |
+| Linux / uClibc-ng | SPARC V8, SPARC32PLUS, Xtensa dc233c LE | Static executable with OpenSSL and wide ncurses embedded |
+| Linux / openEuler 24.03 LTS SP4 | LoongArch64 | Distribution glibc, OpenSSL and ncurses packages |
+| macOS 15+ | Apple Silicon / ARM64, Intel / x86-64 | Apple system libraries; OpenSSL and ncurses embedded |
+| FreeBSD 14.4 | x86-64, ARM64, RISC-V 64, PowerPC 64 BE | Base-system libraries |
+| OpenBSD 7.9 | x86-64, ARM64, RISC-V 64, SPARC64 | Base-system libraries, including LibreSSL |
+| NetBSD 10.1; 11.0 for RISC-V | x86-64, ARM64, SPARC64; RISC-V 64 | Base-system libraries |
+| DragonFly BSD 6.4.2 | x86-64 | Base TLS; install the `ncurses` package |
+| MidnightBSD 4.0.8, GhostBSD 26.2, HardenedBSD 15, OPNsense 26.7 | x86-64 | OS libraries |
+| NextBSD continuous | x86-64 | OS libraries; rolling snapshot recorded in build metadata |
+| Solaris 11.4 | x86-64 | OS OpenSSL and ncurses packages |
+| illumos: OmniOS r151058, OpenIndiana 202604, Tribblix 0m41.1 | x86-64 | OS packages; OpenIndiana uses OpenSSL 3 |
+| GNU Hurd 2025 | x86-64, i386 | Distribution glibc, OpenSSL and ncurses packages |
+| Haiku r1beta6 | x86-64 | OS libraries plus `openssl3` and `ncurses6` packages |
 
-Linux x86-64/ARM64 and both macOS targets use native runners; Linux x86 uses
-compatibility mode and the remaining Linux targets execute under QEMU. Emulation
-is explicitly recorded in each archive's `BUILD-INFO.txt`. Linux binaries do not
-require glibc or separately installed OpenSSL/ncurses shared libraries, but still
-need CA certificates and terminal descriptions. macOS binaries are ad-hoc signed,
-not Apple notarized; use `-c` for a CA bundle if the default location is unavailable.
+Download the `.tar.gz` matching both **OS and CPU/ABI**, verify it against
+`SHA256SUMS`, extract it, and run `./posirc --version`. Each archive includes the
+GPL license, installation instructions and `BUILD-INFO.txt`; dynamically linked
+packages also list their runtime dependencies. CA certificates and terminal
+descriptions remain necessary. Use `-c /path/to/ca-bundle.pem` when needed.
+Embedded library updates require installing a newer POSIRC binary.
 
-BSD targets build and run tests in full-system QEMU VMs. Download the package for
-your exact BSD release and CPU; Linux binaries are not BSD binaries. BSD packages
-use the OS's base curses/TLS libraries, with runtime dependencies listed in each
-archive. The Linux `x86` package targets i686-class CPUs with CMOV and SSE2, not an original 80386.
-`ppc64le` is little-endian PowerPC 64; FreeBSD `powerpc64` is big-endian. These do
-not imply support for 32-bit PowerPC or classic Mac OS X. Linux CPU baselines
-follow the [Alpine architecture requirements](https://wiki.alpinelinux.org/wiki/Architecture).
+`x86` requires i686-class hardware with CMOV and SSE2, not an original 80386.
+MIPS N32 and N64 use different pointer sizes and calling conventions; PowerPC
+and ARM byte order matters too. Xtensa CPU configurations are not interchangeable.
+See the [CPU/ABI details and validation boundaries](docs/releases/PORTABILITY.md)
+and [installation instructions](docs/releases/INSTALL.txt) before choosing a package.
+macOS binaries are ad-hoc signed, not Apple notarized.
 
-Download the matching `.tar.gz`, extract it, and run `./posirc --version`.
-`SHA256SUMS`, dependency versions and third-party notices accompany the binaries.
-Static dependencies are updated by installing a new POSIRC release. See the
-[installation instructions](docs/releases/INSTALL.txt) and
-[beta release notes](docs/releases/v0.3.0-beta.1.md).
+Linux x86-64/ARM64 and both macOS builds use native runners; Linux x86 uses
+compatibility mode. Other Linux executables run under QEMU user emulation;
+BSD, Solaris/illumos, Hurd, Haiku and LoongArch builds execute in full-system VMs.
+The same client features are present in every package. Emulation establishes
+that the tests execute; it does not certify every physical CPU, kernel or terminal.
 
-The [release workflow](.github/workflows/release.yml) can run without publication
-(`workflow_dispatch`, `publish=false`) or publish a prerelease after **all nineteen
-build/test jobs pass** (`publish=true` or a matching beta tag). It packages the
-exact tested executables and matching source, uploads all assets as a draft, then
-publishes. The container image and actions are pinned; package versions are
-recorded because package repositories can receive security updates.
+The [release workflow](.github/workflows/release.yml) builds without publication
+with `workflow_dispatch`, `publish=false`. Publication requires every job in the
+[release manifest](scripts/release-targets.json) and the archive verification job
+to pass. CI verifies the exact target set and source commit, packages the tested
+executables and matching source, uploads a draft, then publishes the complete beta.
+Actions, SDK checksums, dependency source checksums and the additional QEMU
+package are pinned. OS package repositories can receive security updates;
+actual compiler/library versions are recorded in each archive.
 
-If publication fails after the builds pass, dispatch the workflow with
-`publish=true` and `reuse_run` set to that release run's numeric ID. The CI
-requires all 19 build/test jobs in the original run to have succeeded, verifies
-each archive's source revision, and publishes that exact revision and its source
-archive. This retries publication without rebuilding or mixing revisions.
+If publication fails after validation, dispatch with `publish=true` and
+`reuse_run` set to the original release run ID. CI verifies the complete original
+job set and each archive's revision before publishing those exact artifacts.
+See the [release notes](docs/releases/v0.3.1-beta.2.md) for changes since the first beta.
 
 ## Arch Linux package
 

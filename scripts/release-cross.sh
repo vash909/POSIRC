@@ -1,5 +1,5 @@
 #!/bin/bash
-# Cross-build static Linux binaries, then execute ALL client tests via binfmt/QEMU.
+# Cross-build Linux binaries, then execute ALL client tests via binfmt/QEMU.
 set -euo pipefail
 : "${RELEASE_ARCH:?missing CPU}"
 : "${GITHUB_SHA:?missing revision}"
@@ -134,6 +134,9 @@ stage="dist/$name"
 mkdir -p "$stage"
 cp posirc README.md LICENSE "$stage/"
 cp -r "$prefix/licenses" "$stage/"
+if [ "$libc" = glibc ]; then
+    readelf -d posirc | grep NEEDED > "$stage/dependencies.txt"
+fi
 cp docs/releases/INSTALL.txt "$stage/INSTALL.txt"
 {
     printf 'POSIRC version: %s\nSource commit: %s\nTarget: linux-%s-%s\n' "$version" "$GITHUB_SHA" "$RELEASE_ARCH" "$libc"
@@ -143,6 +146,12 @@ cp docs/releases/INSTALL.txt "$stage/INSTALL.txt"
     "$compiler" --version
     file posirc
     readelf -h posirc
-    cat scripts/release-linux-toolchains.json
+    readelf -A posirc
+    readelf --version-info posirc
+    python3 - "$RELEASE_ARCH" <<'PYINFO'
+import json,sys
+row = next(r for r in json.load(open('scripts/release-linux-toolchains.json')) if r['arch'] == sys.argv[1])
+print(json.dumps(row, indent=2))
+PYINFO
 } > "$stage/BUILD-INFO.txt"
 tar -czf "dist/$name.tar.gz" -C dist "$name"

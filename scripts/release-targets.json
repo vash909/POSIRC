@@ -1,0 +1,242 @@
+[
+  {
+    "target": "linux-x86_64-musl",
+    "job": "Linux x86_64"
+  },
+  {
+    "target": "linux-x86-musl",
+    "job": "Linux x86"
+  },
+  {
+    "target": "linux-aarch64-musl",
+    "job": "Linux aarch64"
+  },
+  {
+    "target": "linux-armv7-musl",
+    "job": "Linux armv7"
+  },
+  {
+    "target": "linux-armhf-musl",
+    "job": "Linux armhf"
+  },
+  {
+    "target": "linux-riscv64-musl",
+    "job": "Linux riscv64"
+  },
+  {
+    "target": "linux-ppc64le-musl",
+    "job": "Linux ppc64le"
+  },
+  {
+    "target": "linux-s390x-musl",
+    "job": "Linux s390x"
+  },
+  {
+    "target": "macos15-arm64",
+    "job": "macOS arm64"
+  },
+  {
+    "target": "macos15-x86_64",
+    "job": "macOS x86_64"
+  },
+  {
+    "target": "freebsd14.4-x86_64",
+    "job": "freebsd x86_64"
+  },
+  {
+    "target": "freebsd14.4-aarch64",
+    "job": "freebsd aarch64"
+  },
+  {
+    "target": "freebsd14.4-riscv64",
+    "job": "freebsd riscv64"
+  },
+  {
+    "target": "freebsd14.4-powerpc64",
+    "job": "freebsd powerpc64"
+  },
+  {
+    "target": "openbsd7.9-x86_64",
+    "job": "openbsd x86_64"
+  },
+  {
+    "target": "openbsd7.9-aarch64",
+    "job": "openbsd aarch64"
+  },
+  {
+    "target": "openbsd7.9-riscv64",
+    "job": "openbsd riscv64"
+  },
+  {
+    "target": "openbsd7.9-sparc64",
+    "job": "openbsd sparc64"
+  },
+  {
+    "target": "netbsd10.1-x86_64",
+    "job": "netbsd x86_64"
+  },
+  {
+    "target": "netbsd10.1-aarch64",
+    "job": "netbsd aarch64"
+  },
+  {
+    "target": "netbsd10.1-sparc64",
+    "job": "netbsd sparc64"
+  },
+  {
+    "target": "netbsd11.0-riscv64",
+    "job": "netbsd riscv64"
+  },
+  {
+    "target": "dragonflybsd6.4.2-x86_64",
+    "job": "dragonflybsd x86_64"
+  },
+  {
+    "target": "midnightbsd4.0.8-x86_64",
+    "job": "midnightbsd x86_64"
+  },
+  {
+    "target": "ghostbsd26.2-x86_64",
+    "job": "ghostbsd x86_64"
+  },
+  {
+    "target": "hardenedbsd15-x86_64",
+    "job": "hardenedbsd x86_64"
+  },
+  {
+    "target": "opnsense26.7-x86_64",
+    "job": "opnsense x86_64"
+  },
+  {
+    "target": "nextbsdcontinuous-x86_64",
+    "job": "nextbsd x86_64"
+  },
+  {
+    "target": "solaris11.4-gcc-14-x86_64",
+    "job": "solaris x86_64"
+  },
+  {
+    "target": "omniosr151058-build-x86_64",
+    "job": "omnios x86_64"
+  },
+  {
+    "target": "openindiana202604-build-x86_64",
+    "job": "openindiana x86_64"
+  },
+  {
+    "target": "tribblix0m41.1-x86_64",
+    "job": "tribblix x86_64"
+  },
+  {
+    "target": "hurd2025-x86_64",
+    "job": "hurd x86_64"
+  },
+  {
+    "target": "hurd2025-i386",
+    "job": "hurd i386"
+  },
+  {
+    "target": "haikur1beta6-x86_64",
+    "job": "haiku x86_64"
+  },
+  {
+    "target": "openeuler24.03-LTS-SP4-loongarch64",
+    "job": "openeuler loongarch64"
+  },
+  {
+    "target": "linux-aarch64_be-musl",
+    "job": "Linux extra aarch64_be"
+  },
+  {
+    "target": "linux-armebv7-musl",
+    "job": "Linux extra armebv7"
+  },
+  {
+    "target": "linux-riscv32-musl",
+    "job": "Linux extra riscv32"
+  },
+  {
+    "target": "linux-powerpc-musl",
+    "job": "Linux extra powerpc"
+  },
+  {
+    "target": "linux-powerpc64-musl",
+    "job": "Linux extra powerpc64"
+  },
+  {
+    "target": "linux-mips-musl",
+    "job": "Linux extra mips"
+  },
+  {
+    "target": "linux-mipsel-musl",
+    "job": "Linux extra mipsel"
+  },
+  {
+    "target": "linux-mips64n32-musl",
+    "job": "Linux extra mips64n32"
+  },
+  {
+    "target": "linux-mips64eln32-musl",
+    "job": "Linux extra mips64eln32"
+  },
+  {
+    "target": "linux-microblaze-musl",
+    "job": "Linux extra microblaze"
+  },
+  {
+    "target": "linux-microblazeel-musl",
+    "job": "Linux extra microblazeel"
+  },
+  {
+    "target": "linux-or1k-musl",
+    "job": "Linux extra or1k"
+  },
+  {
+    "target": "linux-sh4-musl",
+    "job": "Linux extra sh4"
+  },
+  {
+    "target": "linux-sh4eb-musl",
+    "job": "Linux extra sh4eb"
+  },
+  {
+    "target": "linux-m68k-musl",
+    "job": "Linux extra m68k"
+  },
+  {
+    "target": "linux-mips64-glibc",
+    "job": "Linux extra mips64"
+  },
+  {
+    "target": "linux-mips64el-glibc",
+    "job": "Linux extra mips64el"
+  },
+  {
+    "target": "linux-alpha-glibc",
+    "job": "Linux extra alpha"
+  },
+  {
+    "target": "linux-hppa-glibc",
+    "job": "Linux extra hppa"
+  },
+  {
+    "target": "linux-sparc64-glibc",
+    "job": "Linux extra sparc64"
+  },
+  {
+    "target": "linux-sparc-uclibc",
+    "job": "Linux extra sparc"
+  },
+  {
+    "target": "linux-sparc32plus-uclibc",
+    "job": "Linux extra sparc32plus"
+  },
+  {
+    "target": "linux-xtensa-uclibc",
+    "job": "Linux extra xtensa"
+  },
+  {
+    "target": "linux-hexagon-musl",
+    "job": "Linux extra hexagon"
+  }
+]

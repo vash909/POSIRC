@@ -1,41 +1,69 @@
 POSIRC beta binaries
 
-Extract the archive and run ./posirc --version, then ./posirc --help.
-Place posirc in a directory on your PATH if desired; no installer is required.
+Download the archive matching OS version, CPU, byte order and ABI. Verify its
+SHA-256 against SHA256SUMS, extract it and run ./posirc --version and --help.
+Place posirc in a directory on PATH if desired; no installer is required.
 
-Linux archives contain a statically linked musl executable, including OpenSSL
-and ncurses. Choose your CPU architecture; the binary does not require glibc
-or shared OpenSSL/ncurses libraries. A working CA store (usually the
-ca-certificates package), terminal database and UTF-8 locale are still needed.
-If your trust-store location differs, use -c /path/to/ca-bundle.pem.
+All packages provide the same TUI, UTF-8, verified TLS, commands, configuration
+and Unix pipe modes. CA certificates and terminal descriptions are external.
+Use -c /path/to/ca-bundle.pem when your trust store differs from build defaults.
+The interactive UI needs a working TERM and UTF-8 locale; pipes need neither.
 
-macOS archives require macOS 15 or later on the matching CPU. OpenSSL and
-ncurses are linked into the executable; Homebrew is not needed at runtime.
-These community beta executables are ad-hoc signed, not Apple notarized.
-Your system may require approval before running downloaded software.
-For a CA bundle use -c /path/to/ca-bundle.pem if default paths are unavailable.
+Linux *-musl and *-uclibc archives are static, including their C library,
+OpenSSL and wide ncurses. They do not require shared OpenSSL/ncurses or glibc.
+Linux *-glibc archives require glibc 2.39 or newer; OpenSSL and wide ncurses are
+embedded. Install a UTF-8 locale for glibc builds. Embedded libraries receive
+security updates through new POSIRC releases.
 
-BSD archives are specific to the named BSD version and CPU. They dynamically
-link the base OS curses and TLS libraries; see dependencies.txt in the archive.
-OpenBSD uses LibreSSL. No pkg/pkgsrc runtime libraries should be needed. Use the
-matching BSD release, and provide a CA bundle with -c when necessary.
+The openEuler LoongArch64 archive uses the named distribution's glibc,
+openssl-libs and ncurses-libs packages, plus CA certificates and UTF-8 locale.
+Use the matching openEuler release, not an arbitrary LoongArch ABI/sysroot.
 
-The Linux x86 archive targets i686-class hardware with CMOV and SSE2, not an original Intel 80386.
-Linux ppc64le and FreeBSD powerpc64 differ in byte order (little vs big endian).
-Neither package targets 32-bit PowerPC or legacy Mac OS X.
+macOS archives require macOS 15+ on the matching CPU. OpenSSL/ncurses are
+embedded; Homebrew is not needed at runtime. Binaries are ad-hoc signed,
+not Apple notarized. Your system may request approval for downloaded programs.
+
+FreeBSD, OpenBSD and NetBSD archives link base OS curses/TLS libraries. They
+need the named OS release and CPU, without pkg/pkgsrc runtime dependencies.
+OpenBSD uses LibreSSL. NetBSD RISC-V packages target 11.0; others target 10.1.
+
+Additional BSD archives use their named OS libraries. DragonFly also requires
+its ncurses package (pkg install ncurses). Download the correct distribution's
+archive, including for GhostBSD, HardenedBSD, MidnightBSD, OPNsense or NextBSD;
+related kernels do not guarantee identical library ABIs.
+
+Solaris/illumos packages need the named OS's OpenSSL and wide ncurses packages.
+Solaris/OmniOS/OpenIndiana: library/ncurses and library/security/openssl.
+OpenIndiana additionally needs library/security/openssl-3; its libraries are
+selected explicitly, avoiding the older default OpenSSL installation.
+Tribblix: the develop overlay supplies the tested libraries.
+See dependencies.txt for the exact dynamic loader paths on your OS.
+
+GNU Hurd archives use Debian GNU/Hurd's glibc, libssl and libncursesw packages.
+Haiku requires openssl3 and ncurses6; pkgman manages their dependencies.
+The named VM image/snapshot and installed packages appear in BUILD-INFO.txt.
+
+CPU cautions:
+- Linux x86 requires i686/CMOV/SSE2, not an original Intel 80386.
+- PowerPC32, PowerPC64 big-endian and ppc64le are distinct packages. Linux
+  powerpc64 requires POWER8; powerpc uses the e300c3 toolchain baseline.
+- ARM big-endian and little-endian binaries are distinct. armebv7 is hard-float.
+- RISC-V32 uses ILP32D. MIPS32 uses O32; MIPS64 N32 has 32-bit pointers;
+  MIPS64 N64 has 64-bit pointers. Both endian variants have separate archives.
+- m68k uses a 68040-compatible QEMU test CPU; not a promise for every 68000.
+- SuperH LE is SH4; BE uses an SH4A toolchain. Xtensa LE targets dc233c;
+  a different Xtensa core configuration may have an incompatible ISA.
+- None of the PowerPC archives target classic Mac OS X.
 
 Example (quote the channel name):
   ./posirc -s irc.example.net -p 6697 -n yournick -j '#channel'
 
-All connections require verified TLS. The -c option selects a CA file, not a
-channel. Use -j for the channel. See README.md for terminal and Unix pipe modes.
+All connections require verified TLS. -c selects a CA file, -j a channel.
+The TUI remembers server/port/nick in ~/.posirc. Pipe modes use explicit flags
+and neither read nor write that file. See README.md for commands and examples.
 
-SHA256SUMS verifies archive integrity. BUILD-INFO.txt and packages.txt record
-how this particular executable was built and tested; licenses/ contains the
-notices for embedded third-party components. Static dependencies are updated
-by installing a newer POSIRC release, not by upgrading system shared libraries.
-
-Tests run natively on x86-64, ARM64 and macOS runners; other Linux targets run
-under QEMU or host CPU compatibility mode as indicated in BUILD-INFO.txt.
-BSD targets execute inside full-system QEMU VMs.
-Emulation tests are not a claim of testing on every physical device or kernel.
+BUILD-INFO.txt records the source revision, target, tests, execution method
+and toolchain. dependencies.txt or packages.txt records runtime/package details;
+licenses/ contains notices for embedded components. LICENSE covers POSIRC.
+Emulated tests are not hardware certification. See PORTABILITY.md in the source
+release or repository for the target matrix and research targets not published.
