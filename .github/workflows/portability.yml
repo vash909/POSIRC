@@ -75,6 +75,7 @@ jobs:
         if: matrix.os == 'nextbsd'
         uses: vmactions/nextbsd-vm@24825c5b4b5e99c6d16180de275955402eab5a32
         with:
+          prepare: pkg lock -y pkg
           release: ${{ matrix.release }}
           arch: ${{ matrix.arch }}
           sync: scp
