@@ -51,7 +51,7 @@ if [ "$libc" = glibc ]; then
     # The x86 runner's C.UTF-8 files work for Alpha but not for SPARC/PA-RISC.
     mkdir -p "$work/locales"
     locale_endian=--big-endian
-    if [ "$RELEASE_ARCH" = alpha ]; then locale_endian=--little-endian; fi
+    case "$RELEASE_ARCH" in alpha|mips64el) locale_endian=--little-endian ;; esac
     localedef "$locale_endian" --no-archive -i en_US -f UTF-8 "$work/locales/en_US.UTF-8"
     export LOCPATH="$work/locales"
     linkflags=-static-libgcc
@@ -104,7 +104,7 @@ if [ ! -f "$prefix/complete" ]; then
     esac
     curl -4 -fsSL --connect-timeout 20 --retry 3 "$fetch_url" -o "$prefix/licenses/$libc-LICENSE"
     if [ "$RELEASE_ARCH" = hexagon ]; then
-        curl -4 -fsSL --retry 3 https://raw.githubusercontent.com/qualcomm/musl/hexagon-v1.2.4-mar-2026/COPYRIGHT \
+        curl -4 -fsSL --retry 3 https://raw.githubusercontent.com/qualcomm/musl/hexagon-v1.2.4-apr-2026/COPYRIGHT \
             -o "$prefix/licenses/musl-LICENSE"
         curl -4 -fsSL --retry 3 https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-22.1.8/compiler-rt/LICENSE.TXT \
             -o "$prefix/licenses/compiler-rt-LICENSE.txt"
