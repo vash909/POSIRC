@@ -283,9 +283,46 @@ static void draw_history(struct posirc_buffer *buffer, struct ui_colors *colors,
     (void)attrset(A_NORMAL);
 }
 
-static int draft_width(uint32_t c)
+struct input_glyph {
+    wchar_t text[CCHARW_MAX];
+    size_t bytes;
+    int cells, control;
+};
+
+static uint32_t input_scalar(uint32_t c)
 {
-    return c < 32 ? 2 : scalar_width(c);
+    /* Match text_clean's filtering while reading the original draft directly. */
+    if (c > (uint32_t)WCHAR_MAX || wcwidth((wchar_t)c) < 0 ||
+        c == 0x2028 || c == 0x2029 || (c >= 0x202a && c <= 0x202e) ||
+        (c >= 0x2066 && c <= 0x2069)) return '?';
+    return c;
+}
+
+/* Measure and draw the same units, including standalone/excess combining
+ * marks. Raw IRC formatting is displayed as caret notation, never applied. */
+static void input_glyph(const char *text, struct input_glyph *glyph)
+{
+    uint32_t c;
+    size_t count = 1;
+    glyph->bytes = utf8_decode(text, &c);
+    glyph->control = c < 32 || c == 127;
+    if (glyph->control) {
+        glyph->text[0] = L'^'; glyph->text[1] = c == 127 ? L'?' : (wchar_t)(c + 64);
+        glyph->text[2] = L'\0'; glyph->cells = 2;
+        return;
+    }
+    c = input_scalar(c);
+    glyph->cells = scalar_width(c);
+    if (glyph->cells == 0) { glyph->text[0] = L' '; glyph->text[count++] = (wchar_t)c; glyph->cells = 1; }
+    else glyph->text[0] = (wchar_t)c;
+    while (text[glyph->bytes] != '\0' && count < CCHARW_MAX - 1) {
+        size_t length = utf8_decode(text + glyph->bytes, &c);
+        c = input_scalar(c);
+        if (scalar_width(c) != 0) break;
+        glyph->text[count++] = (wchar_t)c;
+        glyph->bytes += length;
+    }
+    glyph->text[count] = L'\0';
 }
 
 static int history_width(const struct posirc_buffer *buffer, int columns)
@@ -297,30 +334,45 @@ static int history_width(const struct posirc_buffer *buffer, int columns)
 
 static void draw_input(struct ui_colors *colors, const struct posirc_buffer *buffer, int row, int columns)
 {
-    size_t offset = 0, index = 0, used = 0;
-    int cells = 0, cursor_cells;
-    char visible[POSIRC_TEXT_CAPACITY * 2];
-    uint32_t c;
-    while (index < buffer->cursor) {
-        index += utf8_decode(buffer->draft + index, &c);
-        cells += draft_width(c);
+    struct input_glyph glyph;
+    size_t offset = 0, index = 0;
+    int cursor_cells = 0, used = 0, width, screen_rows, screen_columns;
+    getmaxyx(stdscr, screen_rows, screen_columns);
+    if (columns > screen_columns) columns = screen_columns;
+    if (row < 0 || row >= screen_rows || columns < 5) return;
+    /* Prompt, one overflow indicator and the physical rightmost cell are
+     * outside the editable viewport. Keep a cell free for the end cursor. */
+    width = columns - 4;
+    while (index < buffer->cursor && buffer->draft[index] != '\0') {
+        input_glyph(buffer->draft + index, &glyph);
+        index += glyph.bytes;
+        cursor_cells += glyph.cells;
     }
-    while (cells > columns - 4 && offset < buffer->cursor) {
-        offset += utf8_decode(buffer->draft + offset, &c);
-        cells -= draft_width(c);
+    while (cursor_cells >= width && offset < buffer->cursor) {
+        input_glyph(buffer->draft + offset, &glyph);
+        offset += glyph.bytes;
+        cursor_cells -= glyph.cells;
     }
-    cursor_cells = cells;
+    draw_text(colors, row, 0, 2, offset ? "< " : "> ", A_NORMAL, 0);
     index = offset;
-    while (buffer->draft[index] != '\0' && used + 5 < sizeof visible) {
-        char encoded[5];
-        size_t length = utf8_decode(buffer->draft + index, &c);
-        index += length;
-        if (c < 32) { visible[used++] = '^'; visible[used++] = (char)(c + 64); }
-        else { length = utf8_encode(c, encoded); memcpy(visible + used, encoded, length); used += length; }
+    while (buffer->draft[index] != '\0') {
+        cchar_t character;
+        input_glyph(buffer->draft + index, &glyph);
+        if (used + glyph.cells > width) break;
+        if (glyph.control) {
+            int part;
+            for (part = 0; part < 2; ++part) {
+                wchar_t text[2] = {glyph.text[part], L'\0'};
+                if (setcchar(&character, text, A_NORMAL, 0, NULL) == OK)
+                    (void)mvadd_wchnstr(row, 2 + used + part, &character, 1);
+            }
+        } else if (setcchar(&character, glyph.text, A_NORMAL, 0, NULL) == OK) {
+            (void)mvadd_wchnstr(row, 2 + used, &character, 1);
+        }
+        index += glyph.bytes;
+        used += glyph.cells;
     }
-    visible[used] = '\0';
-    draw_text(colors, row, 0, 2, "> ", A_NORMAL, 0);
-    draw_text(colors, row, 2, columns - 3, visible, A_NORMAL, 0);
+    draw_text(colors, row, columns - 2, 1, buffer->draft[index] ? ">" : " ", A_NORMAL, 0);
     (void)move(row, 2 + cursor_cells);
 }
 

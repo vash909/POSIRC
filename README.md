@@ -414,6 +414,16 @@ display-only: the retained history text stays available for a wider terminal.
 | Ctrl-B / Ctrl-T / Ctrl-_ | Toggle bold / italic / underline |
 | Ctrl-R / Ctrl-O | Toggle reverse / reset formatting |
 
+Long input stays on one row and scrolls horizontally to keep the cursor visible.
+The prompt changes from `> ` to `< ` when the beginning is hidden; a `>` at the
+right indicates more text after the visible portion. Left/Right, Home/End,
+editing, recall and resizing all recompute the view from the existing draft.
+The cursor and overflow marker leave the terminal's final column untouched.
+Input is measured and drawn with the same Unicode/combining-character rules;
+there is no extra persistent state or heap allocation, and no expanded copy of
+the draft for rendering. The draft limit remains 1,023 UTF-8 bytes; the separate
+IRC frame limit is checked when sending.
+
 Up recalls one entry shared by all buffers and puts the cursor at its end.
 It replaces the current draft; you can edit it before pressing Enter. Repeated
 Up recalls the same entry, and empty Enter leaves the saved entry intact without

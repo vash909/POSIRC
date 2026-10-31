@@ -201,6 +201,87 @@ static void server_history(struct posirc_app *app, struct ui_colors *colors)
     CHECK(cell(2, 56, &attributes, &pair, &combining) == L'*');
 }
 
+static void input_view(struct ui_colors *colors)
+{
+    const int widths[] = {24, 40, 60, 120};
+    const char *unicode[] = {"\314\201Z", "e\314\201\314\201\314\201\314\201\314\201Z", "日😀e\314\201"};
+    struct posirc_buffer buffer;
+    attr_t attributes;
+    short pair;
+    wchar_t combining;
+    size_t i, length, kind;
+    int row, column;
+    buffer_init(&buffer, BUFFER_QUERY, "input-test");
+    for (i = 0; i < sizeof widths / sizeof widths[0]; ++i) {
+        int columns = widths[i], width = columns - 4;
+        buffer.draft[0] = '\0'; buffer.cursor = 0;
+        for (length = 0; length < sizeof buffer.draft; ++length) {
+            (void)erase();
+            (void)mvaddch(22, 0, 'G');
+            (void)mvaddch(23, columns - 1, '|');
+            draw_input(colors, &buffer, 23, columns);
+            getyx(stdscr, row, column);
+            CHECK(row == 23 && column == 2 + (length < (size_t)width ? (int)length : width - 1));
+            CHECK(cell(23, 0, &attributes, &pair, &combining) == (length >= (size_t)width ? L'<' : L'>'));
+            CHECK(cell(23, columns - 2, &attributes, &pair, &combining) == L' ');
+            CHECK(cell(23, columns - 1, &attributes, &pair, &combining) == L'|');
+            CHECK(cell(22, 0, &attributes, &pair, &combining) == L'G');
+            if (length != 0) CHECK(cell(23, column - 1, &attributes, &pair, &combining) == L'x');
+            if (length + 1 < sizeof buffer.draft)
+                CHECK(text_insert(buffer.draft, sizeof buffer.draft, &buffer.cursor, 'x') == 0);
+        }
+        /* Home and editing in the middle reveal the beginning and the hidden
+         * suffix without moving outside the viewport or changing the draft. */
+        buffer.cursor = 0;
+        (void)erase(); draw_input(colors, &buffer, 23, columns);
+        getyx(stdscr, row, column);
+        CHECK(row == 23 && column == 2);
+        CHECK(cell(23, 0, &attributes, &pair, &combining) == L'>');
+        CHECK(cell(23, columns - 2, &attributes, &pair, &combining) == L'>');
+        buffer.cursor = 5;
+        CHECK(text_insert(buffer.draft, sizeof buffer.draft, &buffer.cursor, 'y') == -1); /* Full, never corrupted. */
+        text_delete(buffer.draft, &buffer.cursor, 1);
+        CHECK(text_insert(buffer.draft, sizeof buffer.draft, &buffer.cursor, 'y') == 0);
+        (void)erase(); draw_input(colors, &buffer, 23, columns);
+        getyx(stdscr, row, column);
+        CHECK(row == 23 && column == 7);
+        CHECK(cell(23, 6, &attributes, &pair, &combining) == L'y');
+    }
+    for (kind = 0; kind < sizeof unicode / sizeof unicode[0]; ++kind) {
+        size_t unit = strlen(unicode[kind]);
+        /* Exercise leading marks, more marks than cchar_t can hold, CJK and
+         * emoji at viewport boundaries, including a resized recalled draft. */
+        for (length = 0; length + unit + 1 < sizeof buffer.draft; length += unit)
+            memcpy(buffer.draft + length, unicode[kind], unit);
+        buffer.draft[length++] = 'Z'; buffer.draft[length] = '\0';
+        buffer.cursor = length;
+        for (i = 0; i < sizeof widths / sizeof widths[0]; ++i) {
+            (void)erase(); draw_input(colors, &buffer, 23, widths[i]);
+            getyx(stdscr, row, column);
+            CHECK(row == 23 && column >= 2 && column < widths[i] - 2);
+            CHECK(cell(23, column - 1, &attributes, &pair, &combining) == L'Z');
+            CHECK(buffer.cursor == length && strlen(buffer.draft) == length);
+        }
+    }
+    (void)snprintf(buffer.draft, sizeof buffer.draft, "\314\201Z"); buffer.cursor = strlen(buffer.draft);
+    (void)erase(); draw_input(colors, &buffer, 23, 24);
+    getyx(stdscr, row, column);
+    CHECK(row == 23 && column == 4); /* Standalone combining mark occupies a real cell. */
+    (void)snprintf(buffer.draft, sizeof buffer.draft, "\00304Z"); buffer.cursor = strlen(buffer.draft);
+    (void)erase(); draw_input(colors, &buffer, 23, 24);
+    getyx(stdscr, row, column);
+    CHECK(row == 23 && column == 7);
+    CHECK(cell(23, 2, &attributes, &pair, &combining) == L'^');
+    CHECK(cell(23, 3, &attributes, &pair, &combining) == L'C');
+    CHECK(pair == 0 && (attributes & A_BOLD) == 0);
+    (void)snprintf(buffer.draft, sizeof buffer.draft, "\342\200\256Z"); buffer.cursor = strlen(buffer.draft);
+    (void)erase(); draw_input(colors, &buffer, 23, 24);
+    getyx(stdscr, row, column);
+    CHECK(row == 23 && column == 4);
+    CHECK(cell(23, 2, &attributes, &pair, &combining) == L'?');
+    buffer_free(&buffer);
+}
+
 static void render_case(const char *terminal, int expect_color)
 {
     FILE *output = tmpfile(), *input = tmpfile();
@@ -245,6 +326,7 @@ static void render_case(const char *terminal, int expect_color)
     pane_boundaries(&app, &colors);
     wrapped_history(&app, &colors, expect_color);
     server_history(&app, &colors);
+    input_view(&colors);
     posirc_app_destroy(&app);
     (void)endwin();
     delscreen(screen);
