@@ -345,6 +345,10 @@ static void join_server(pid_t child)
     do {
         result = waitpid(child, &status, 0);
     } while (result < 0 && errno == EINTR);
+    if (result != child || !WIFEXITED(status) || WEXITSTATUS(status) != 0)
+        fprintf(stderr, "TLS fixture wait: pid=%ld result=%ld status=%d signal=%d exit=%d\n",
+                (long)child, (long)result, status, WIFSIGNALED(status) ? WTERMSIG(status) : 0,
+                WIFEXITED(status) ? WEXITSTATUS(status) : -1);
     CHECK(result == child && WIFEXITED(status) && WEXITSTATUS(status) == 0);
 }
 

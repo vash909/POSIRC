@@ -28,13 +28,16 @@ hurd)
     apt-get install -y build-essential libncurses-dev libssl-dev ca-certificates locales
     ;;
 haiku)
-    pkgman install -y ncurses_devel openssl3_devel make gcc
+    pkgman install -y ncurses6_devel openssl3_devel make gcc
     cppflags="$cppflags -I/boot/system/develop/headers/ncurses"
     libs=-lnetwork
     ;;
 solaris|omnios|openindiana)
     PATH="/usr/gnu/bin:/opt/gcc-14/bin:/opt/gcc-13/bin:/opt/gcc-12/bin:$PATH"; export PATH
-    pkg install --accept library/ncurses library/security/openssl
+    pkg_status=0
+    pkg install --accept library/ncurses library/security/openssl || pkg_status=$?
+    case "$pkg_status" in 0|4) ;; *) exit "$pkg_status" ;; esac
+    cppflags="$cppflags -I/usr/include/ncursesw -I/usr/include/ncurses"
     cc=gcc
     flags="$flags -m64 -D__EXTENSIONS__"
     ldflags='-m64 -L/usr/lib/amd64 -R/usr/lib/amd64'
@@ -51,6 +54,10 @@ tribblix)
     command -v gmake >/dev/null 2>&1 && make_command=gmake
     ;;
 dragonflybsd|midnightbsd|ghostbsd|hardenedbsd|opnsense|nextbsd)
+    if ! command -v make >/dev/null 2>&1; then
+        pkg install -y gmake
+        make_command=gmake
+    fi
     if ! command -v cc >/dev/null 2>&1; then
         pkg install -y gcc
         cc=gcc

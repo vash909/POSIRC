@@ -1,0 +1,42 @@
+name: Additional Linux CPUs
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cross:
+    name: Linux ${{ matrix.arch }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ["aarch64_be", "armebv7", "riscv32", "powerpc", "powerpc64", "mips", "mipsel", "mips64n32", "mips64eln32", "microblaze", "microblazeel", "or1k", "sh4", "sh4eb"]
+    env:
+      RELEASE_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y gcc make perl xz-utils curl python3 file binutils
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      - id: dependencies
+        uses: actions/cache@3edfce9056124e459a23f683a21433670d47daca
+        with:
+          path: cross/prefix/${{ matrix.arch }}
+          key: posirc-cross-v1-${{ matrix.arch }}-${{ hashFiles('scripts/release-cross.sh', 'scripts/release-linux-toolchains.json') }}
+      - name: Build dependencies and run complete client test suite
+        run: bash scripts/release-cross.sh
+      - uses: actions/cache/save@3edfce9056124e459a23f683a21433670d47daca
+        if: always() && steps.dependencies.outputs.cache-hit != 'true' && hashFiles('cross/prefix/**/complete') != ''
+        with:
+          path: cross/prefix/${{ matrix.arch }}
+          key: posirc-cross-v1-${{ matrix.arch }}-${{ hashFiles('scripts/release-cross.sh', 'scripts/release-linux-toolchains.json') }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: posirc-probe-linux-${{ matrix.arch }}-musl
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

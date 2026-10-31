@@ -1,6 +1,12 @@
 name: Additional portability targets
 on:
   workflow_dispatch:
+    inputs:
+      targets:
+        description: JSON array of OS/release/arch/target records to probe
+        type: string
+        required: true
+        default: '[{"os":"dragonflybsd","release":"6.4.2","arch":"x86_64","target":"dragonflybsd6.4.2-x86_64"},{"os":"midnightbsd","release":"4.0.8","arch":"x86_64","target":"midnightbsd4.0.8-x86_64"},{"os":"ghostbsd","release":"26.2","arch":"x86_64","target":"ghostbsd26.2-x86_64"},{"os":"hardenedbsd","release":"15","arch":"x86_64","target":"hardenedbsd15-x86_64"},{"os":"opnsense","release":"26.7","arch":"x86_64","target":"opnsense26.7-x86_64"},{"os":"nextbsd","release":"continuous","arch":"x86_64","target":"nextbsdcontinuous-x86_64"},{"os":"nextbsd","release":"continuous","arch":"aarch64","target":"nextbsdcontinuous-aarch64"},{"os":"solaris","release":"11.4-gcc-14","arch":"x86_64","target":"solaris11.4-gcc-14-x86_64"},{"os":"omnios","release":"r151058-build","arch":"x86_64","target":"omniosr151058-build-x86_64"},{"os":"openindiana","release":"202604-build","arch":"x86_64","target":"openindiana202604-build-x86_64"},{"os":"tribblix","release":"0m41.1","arch":"x86_64","target":"tribblix0m41.1-x86_64"},{"os":"hurd","release":"2025","arch":"x86_64","target":"hurd2025-x86_64"},{"os":"hurd","release":"2025","arch":"i386","target":"hurd2025-i386"},{"os":"haiku","release":"r1beta6","arch":"x86_64","target":"haikur1beta6-x86_64"},{"os":"openeuler","release":"24.03-LTS-SP4","arch":"loongarch64","target":"openeuler24.03-LTS-SP4-loongarch64"}]'
 permissions:
   contents: read
 jobs:
@@ -11,22 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { os: dragonflybsd, release: '6.4.2', arch: x86_64, target: dragonflybsd6.4.2-x86_64 }
-          - { os: midnightbsd, release: '4.0.8', arch: x86_64, target: midnightbsd4.0.8-x86_64 }
-          - { os: ghostbsd, release: '26.2', arch: x86_64, target: ghostbsd26.2-x86_64 }
-          - { os: hardenedbsd, release: '15', arch: x86_64, target: hardenedbsd15-x86_64 }
-          - { os: opnsense, release: '26.7', arch: x86_64, target: opnsense26.7-x86_64 }
-          - { os: nextbsd, release: 'continuous', arch: x86_64, target: nextbsdcontinuous-x86_64 }
-          - { os: nextbsd, release: 'continuous', arch: aarch64, target: nextbsdcontinuous-aarch64 }
-          - { os: solaris, release: '11.4-gcc-14', arch: x86_64, target: solaris11.4-gcc-14-x86_64 }
-          - { os: omnios, release: 'r151058-build', arch: x86_64, target: omniosr151058-build-x86_64 }
-          - { os: openindiana, release: '202604-build', arch: x86_64, target: openindiana202604-build-x86_64 }
-          - { os: tribblix, release: '0m41.1', arch: x86_64, target: tribblix0m41.1-x86_64 }
-          - { os: hurd, release: '2025', arch: x86_64, target: hurd2025-x86_64 }
-          - { os: hurd, release: '2025', arch: i386, target: hurd2025-i386 }
-          - { os: haiku, release: 'r1beta6', arch: x86_64, target: haikur1beta6-x86_64 }
-          - { os: openeuler, release: '24.03-LTS-SP4', arch: loongarch64, target: openeuler24.03-LTS-SP4-loongarch64 }
+        include: ${{ fromJSON(inputs.targets) }}
     env:
       RELEASE_OS: ${{ matrix.os }}
       RELEASE_ARCH: ${{ matrix.arch }}

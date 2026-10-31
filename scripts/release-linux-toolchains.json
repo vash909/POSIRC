@@ -1,0 +1,210 @@
+[
+  {
+    "url": "https://toolchains.bootlin.com/downloads/releases/toolchains/aarch64be/tarballs/aarch64be--musl--stable-2026.08-1.tar.xz",
+    "sha256": "7b9d66ac63f409d18517bd169767572fd86d0dfd79fb1fa4f6f38d83979c5ec6",
+    "components": {
+      "binutils": "2.45.1",
+      "gcc": "15.3.0",
+      "gdb": "16.3",
+      "linux-headers": "5.10.269",
+      "musl": "1.2.6"
+    },
+    "toolchain_arch": "aarch64be",
+    "arch": "aarch64_be",
+    "bits": 64,
+    "qemu_cpu": "max"
+  },
+  {
+    "url": "https://toolchains.bootlin.com/downloads/releases/toolchains/armebv7-eabihf/tarballs/armebv7-eabihf--musl--stable-2026.08-1.tar.xz",
+    "sha256": "434cb1a53429b70035250a7fdd4f5d20cdc349a07a143485409460002a3f7ae5",
+    "components": {
+      "binutils": "2.45.1",
+      "gcc": "15.3.0",
+      "gdb": "16.3",
+      "linux-headers": "5.10.269",
+      "musl": "1.2.6"
+    },
+    "toolchain_arch": "armebv7-eabihf",
+    "arch": "armebv7",
+    "bits": 32,
+    "qemu_cpu": "cortex-a15"
+  },
+  {
+    "url": "https://toolchains.bootlin.com/downloads/releases/toolchains/riscv32-ilp32d/tarballs/riscv32-ilp32d--musl--stable-2026.08-1.tar.xz",
+    "sha256": "0ac6a31fcd10c67a8345c7200b20cb2ef26636b28effcb863fb9e8b398d9ff17",
+    "components": {
+      "binutils": "2.45.1",
+      "gcc": "15.3.0",
+      "gdb": "16.3",
+      "linux-headers": "5.10.269",
+      "musl": "1.2.6"
+    },
+    "toolchain_arch": "riscv32-ilp32d",
+    "arch": "riscv32",
+    "bits": 32,
+    "qemu_cpu": ""
+  },
+  {
+    "url": "https://toolchains.bootlin.com/downloads/releases/toolchains/powerpc-e300c3/tarballs/powerpc-e300c3--musl--stable-2026.08-1.tar.xz",
+    "sha256": "65f2bdf7b1557bae9fa929d03546e511b1699cb8287d6776ed59da57299ca747",
+    "components": {
+      "binutils": "2.45.1",
+      "gcc": "15.3.0",
+      "gdb": "16.3",
+      "linux-headers": "5.10.269",
+      "musl": "1.2.6"
+    },
+    "toolchain_arch": "powerpc-e300c3",
+    "arch": "powerpc",
+    "bits": 32,
+    "qemu_cpu": "e300c3"
+  },
+  {
+    "url": "https://toolchains.bootlin.com/downloads/releases/toolchains/powerpc64-power8/tarballs/powerpc64-power8--musl--stable-2026.08-1.tar.xz",
+    "sha256": "18118fa46ced60331055e0a6ffd383bb8e0b19b0fd0431a0a5b26fa3da61184b",
+    "components": {
+      "binutils": "2.45.1",
+      "gcc": "15.3.0",
+      "gdb": "16.3",
+      "linux-headers": "5.10.269",
+      "musl": "1.2.6"
+    },
+    "toolchain_arch": "powerpc64-power8",
+    "arch": "powerpc64",
+    "bits": 64,
+    "qemu_cpu": "POWER8"
+  },
+  {
+    "url": "https://toolchains.bootlin.com/downloads/releases/toolchains/mips32/tarballs/mips32--musl--stable-2026.08-1.tar.xz",
+    "sha256": "0190387211125195f71b8397d02ccaaa15c6eb4ecbb94533d8a904065c0cc410",
+    "components": {
+      "binutils": "2.45.1",
+      "gcc": "15.3.0",
+      "gdb": "16.3",
+      "linux-headers": "5.10.269",
+      "musl": "1.2.6"
+    },
+    "toolchain_arch": "mips32",
+    "arch": "mips",
+    "bits": 32,
+    "qemu_cpu": ""
+  },
+  {
+    "url": "https://toolchains.bootlin.com/downloads/releases/toolchains/mips32el/tarballs/mips32el--musl--stable-2026.08-1.tar.xz",
+    "sha256": "e8517d51ba86699d5efaac62fc50fd9267dbdbc8b2cd3eb5b658db3582286778",
+    "components": {
+      "binutils": "2.45.1",
+      "gcc": "15.3.0",
+      "gdb": "16.3",
+      "linux-headers": "5.10.269",
+      "musl": "1.2.6"
+    },
+    "toolchain_arch": "mips32el",
+    "arch": "mipsel",
+    "bits": 32,
+    "qemu_cpu": ""
+  },
+  {
+    "url": "https://toolchains.bootlin.com/downloads/releases/toolchains/mips64-n32/tarballs/mips64-n32--musl--stable-2026.08-1.tar.xz",
+    "sha256": "ade9e079c841157ba6fbe8ff5c9082a800912f06cbcb50f4b1e03a26fd1ed3ba",
+    "components": {
+      "binutils": "2.45.1",
+      "gcc": "15.3.0",
+      "gdb": "16.3",
+      "linux-headers": "5.10.269",
+      "musl": "1.2.6"
+    },
+    "toolchain_arch": "mips64-n32",
+    "arch": "mips64n32",
+    "bits": 32,
+    "qemu_cpu": ""
+  },
+  {
+    "url": "https://toolchains.bootlin.com/downloads/releases/toolchains/mips64el-n32/tarballs/mips64el-n32--musl--stable-2026.08-1.tar.xz",
+    "sha256": "65b37ec87c41f65e21c4eac126a5e41cc19a60d7365b1cc1bb24cd1a0060614e",
+    "components": {
+      "binutils": "2.45.1",
+      "gcc": "15.3.0",
+      "gdb": "16.3",
+      "linux-headers": "5.10.269",
+      "musl": "1.2.6"
+    },
+    "toolchain_arch": "mips64el-n32",
+    "arch": "mips64eln32",
+    "bits": 32,
+    "qemu_cpu": ""
+  },
+  {
+    "url": "https://toolchains.bootlin.com/downloads/releases/toolchains/microblazebe/tarballs/microblazebe--musl--stable-2026.08-1.tar.xz",
+    "sha256": "e7ca52afacf78f748a3a097adf1de3c5d595ef2026a5002c16ceeb0965f1d946",
+    "components": {
+      "binutils": "2.45.1",
+      "gcc": "15.3.0",
+      "linux-headers": "5.10.269",
+      "musl": "1.2.6"
+    },
+    "toolchain_arch": "microblazebe",
+    "arch": "microblaze",
+    "bits": 32,
+    "qemu_cpu": ""
+  },
+  {
+    "url": "https://toolchains.bootlin.com/downloads/releases/toolchains/microblazeel/tarballs/microblazeel--musl--stable-2026.08-1.tar.xz",
+    "sha256": "7883cadf05320f767479199e8bffdf3b2b27abecedd27b48543b8704fd2176b5",
+    "components": {
+      "binutils": "2.45.1",
+      "gcc": "15.3.0",
+      "linux-headers": "5.10.269",
+      "musl": "1.2.6"
+    },
+    "toolchain_arch": "microblazeel",
+    "arch": "microblazeel",
+    "bits": 32,
+    "qemu_cpu": ""
+  },
+  {
+    "url": "https://toolchains.bootlin.com/downloads/releases/toolchains/openrisc/tarballs/openrisc--musl--stable-2026.08-1.tar.xz",
+    "sha256": "5ab8ecde0742bb0e80eafeebf6bdefb3685e8832f744e286689e47ee51db955d",
+    "components": {
+      "binutils": "2.45.1",
+      "gcc": "15.3.0",
+      "gdb": "16.3",
+      "linux-headers": "5.10.269",
+      "musl": "1.2.6"
+    },
+    "toolchain_arch": "openrisc",
+    "arch": "or1k",
+    "bits": 32,
+    "qemu_cpu": ""
+  },
+  {
+    "url": "https://toolchains.bootlin.com/downloads/releases/toolchains/sh-sh4/tarballs/sh-sh4--musl--stable-2026.08-1.tar.xz",
+    "sha256": "7084f5e5a381d6bb2e7ddbcc831c45488fd1fae322bac8d0cea8417efecec396",
+    "components": {
+      "binutils": "2.45.1",
+      "gcc": "15.3.0",
+      "gdb": "16.3",
+      "linux-headers": "5.10.269",
+      "musl": "1.2.6"
+    },
+    "toolchain_arch": "sh-sh4",
+    "arch": "sh4",
+    "bits": 32,
+    "qemu_cpu": "sh7750r"
+  },
+  {
+    "url": "https://toolchains.bootlin.com/downloads/releases/toolchains/sh-sh4aeb/tarballs/sh-sh4aeb--musl--stable-2026.08-1.tar.xz",
+    "sha256": "c42ff4be836af7f4888e8986982d8773f064bd7f734b6d991ab1deb1d5cb7672",
+    "components": {
+      "binutils": "2.45.1",
+      "gcc": "15.3.0",
+      "gdb": "16.3",
+      "linux-headers": "5.10.269",
+      "musl": "1.2.6"
+    },
+    "toolchain_arch": "sh-sh4aeb",
+    "arch": "sh4eb",
+    "bits": 32,
+    "qemu_cpu": "sh7785"
+  }
+]
