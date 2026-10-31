@@ -24,9 +24,16 @@ if [ "$url" = apt ]; then
     sudo apt-get install -y "gcc-$apt_triple" "libc6-dev-${RELEASE_ARCH}-cross" locales
     compiler="/usr/bin/$apt_triple-gcc"
 else
-    fetch "$url" "$work/toolchain.tar.xz" "$checksum"
-    mkdir -p "$work/toolchain"
-    tar -xf "$work/toolchain.tar.xz" -C "$work/toolchain" --strip-components=1
+    if [ "$url" = buildroot ]; then
+        bash scripts/release-buildroot-sdk.sh
+        sdk_archive="$root/cross/xtensaeb-sdk.tar.gz"
+        mkdir -p "$work/toolchain"
+        tar -xf "$sdk_archive" -C "$work/toolchain"
+    else
+        fetch "$url" "$work/toolchain.tar.xz" "$checksum"
+        mkdir -p "$work/toolchain"
+        tar -xf "$work/toolchain.tar.xz" -C "$work/toolchain" --strip-components=1
+    fi
     if [ -f "$work/toolchain/relocate-sdk.sh" ]; then (cd "$work/toolchain" && ./relocate-sdk.sh); fi
     if [ "$RELEASE_ARCH" = hexagon ]; then
         compiler=$(find "$work/toolchain" -name hexagon-unknown-linux-musl-clang | head -1)

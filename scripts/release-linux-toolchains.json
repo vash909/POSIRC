@@ -350,5 +350,19 @@
     "musl_fork": "hexagon-v1.2.4-apr-2026",
     "llvm_version": "22.1.8",
     "extra_cflags": "--no-default-config"
+  },
+  {
+    "arch": "xtensaeb",
+    "bits": 32,
+    "qemu_cpu": "fsf",
+    "url": "buildroot",
+    "sha256": "189155cfd0f82b7b7938b306ca2926b68af177b68adcb8a786a737f7bf40c0bd",
+    "libc": "uclibc",
+    "components": {
+      "uclibc": "1.0.59",
+      "gcc": "15.3.0"
+    },
+    "buildroot_commit": "48bfc2c656979dbbb24277ffc6746ea7a6af4a50",
+    "config": "scripts/release-xtensaeb.config"
   }
 ]
