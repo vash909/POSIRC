@@ -112,6 +112,10 @@
     "job": "nextbsd x86_64"
   },
   {
+    "target": "nextbsdcontinuous-aarch64",
+    "job": "nextbsd aarch64"
+  },
+  {
     "target": "solaris11.4-gcc-14-x86_64",
     "job": "solaris x86_64"
   },

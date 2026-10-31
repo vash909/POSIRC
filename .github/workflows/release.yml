@@ -175,6 +175,7 @@ jobs:
           - {"os": "hardenedbsd", "release": "15", "arch": "x86_64", "target": "hardenedbsd15-x86_64"}
           - {"os": "opnsense", "release": "26.7", "arch": "x86_64", "target": "opnsense26.7-x86_64"}
           - {"os": "nextbsd", "release": "continuous", "arch": "x86_64", "target": "nextbsdcontinuous-x86_64"}
+          - {"os": "nextbsd", "release": "continuous", "arch": "aarch64", "target": "nextbsdcontinuous-aarch64"}
           - {"os": "solaris", "release": "11.4-gcc-14", "arch": "x86_64", "target": "solaris11.4-gcc-14-x86_64"}
           - {"os": "omnios", "release": "r151058-build", "arch": "x86_64", "target": "omniosr151058-build-x86_64"}
           - {"os": "openindiana", "release": "202604-build", "arch": "x86_64", "target": "openindiana202604-build-x86_64"}
@@ -240,6 +241,7 @@ jobs:
         if: matrix.os == 'nextbsd'
         uses: vmactions/nextbsd-vm@24825c5b4b5e99c6d16180de275955402eab5a32
         with:
+          prepare: pkg lock -y pkg
           release: ${{ matrix.release }}
           arch: ${{ matrix.arch }}
           sync: scp

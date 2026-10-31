@@ -3,7 +3,7 @@
 The release manifest in `scripts/release-targets.json` is the exact binary asset
 set. All of its targets must pass before publication; a successful cross-link
 alone is insufficient. This release expands the original nineteen packages to
-sixty, with the same application functionality throughout.
+sixty-one, with the same application functionality throughout.
 
 ## What runs on every target
 
@@ -91,7 +91,7 @@ NetBSD RISC-V needs 11.0. OpenBSD uses LibreSSL. Their archives reject unexpecte
 `/usr/local` or `/usr/pkg` dependencies during packaging.
 
 Additional VMs cover DragonFly, MidnightBSD, GhostBSD, HardenedBSD, OPNsense,
-NextBSD x86-64, Solaris, three illumos distributions, GNU Hurd x86-64/i386,
+NextBSD x86-64/ARM64, Solaris, three illumos distributions, GNU Hurd x86-64/i386,
 Haiku x86-64 and openEuler LoongArch64. These are OS-specific binaries, with
 installed package versions and loader dependencies recorded in each archive.
 They are not interchangeable merely because they share a CPU or kernel ancestry.
@@ -103,16 +103,14 @@ an ad-hoc signature. Tests execute on native Apple Silicon and Intel runners.
 ## Research boundaries
 
 The [project's portability list](https://xzgroup.net/posirc.html) also includes
-NextBSD aarch64 and Xtensa big-endian. A release requires a working target
+Xtensa big-endian. A release requires a working target
 userspace, compatible compiler/sysroot, an emulator CPU configuration and a
 complete passing suite. It does not require shipping every compiler backend.
 
-- NextBSD aarch64: the pinned VM probe did not reach a completed build/test run.
-  The x86-64 snapshot passes. No aarch64 executable is claimed as validated.
-- Xtensa big-endian: the available Bootlin lx60 SDK targets the little-endian
-  dc233c configuration. Reversing byte order is insufficient: compiler, C
-  library and emulator must agree on the configured Xtensa core. No verified
-  big-endian Linux sysroot/core combination is available in this pipeline.
+- Xtensa big-endian: a source-built SDK for the stock FSF core is being probed.
+  It must pass the complete suite before joining the release matrix. The
+  prebuilt Bootlin lx60 SDK targets the little-endian dc233c configuration;
+  compiler, C library and emulator must agree on the configured core.
 - MIPS N64 musl: the original SDK download host is unreachable from the GitHub
   runners. The published N64 packages instead use tested glibc cross toolchains;
   both byte orders remain covered, with all client features enabled.

@@ -47,7 +47,7 @@ local TLS 1.2/1.3 and real CLI pipe tests on its target ISA and operating system
 | NetBSD 10.1; 11.0 for RISC-V | x86-64, ARM64, SPARC64; RISC-V 64 | Base-system libraries |
 | DragonFly BSD 6.4.2 | x86-64 | Base TLS; install the `ncurses` package |
 | MidnightBSD 4.0.8, GhostBSD 26.2, HardenedBSD 15, OPNsense 26.7 | x86-64 | OS libraries |
-| NextBSD continuous | x86-64 | OS libraries; rolling snapshot recorded in build metadata |
+| NextBSD continuous | x86-64, ARM64 | OS libraries; rolling snapshot recorded in build metadata |
 | Solaris 11.4 | x86-64 | OS OpenSSL and ncurses packages |
 | illumos: OmniOS r151058, OpenIndiana 202604, Tribblix 0m41.1 | x86-64 | OS packages; OpenIndiana uses OpenSSL 3 |
 | GNU Hurd 2025 | x86-64, i386 | Distribution glibc, OpenSSL and ncurses packages |
