@@ -34,6 +34,7 @@ static void pane_boundaries(struct posirc_app *app, struct ui_colors *colors)
     attr_t attributes;
     short pair;
     wchar_t combining;
+    wchar_t separator;
     int row, column;
     /* A full-width write must not move to or damage the following row. */
     (void)erase();
@@ -43,6 +44,10 @@ static void pane_boundaries(struct posirc_app *app, struct ui_colors *colors)
     CHECK(row == 10 && column == 119);
     CHECK(cell(10, 119, &attributes, &pair, &combining) == L'X');
     CHECK(cell(11, 0, &attributes, &pair, &combining) == L'G');
+    /* ACS bit encodings differ between curses implementations. Compare the
+     * visible wide cell with a reference drawn by this implementation. */
+    (void)mvvline(0, 119, ACS_VLINE, 1);
+    separator = cell(0, 119, &attributes, &pair, &combining);
     for (kind = 0; kind < sizeof units / sizeof units[0]; ++kind) {
         size_t length = strlen(units[kind]);
         for (used = 0; used + length < sizeof line; used += length)
@@ -56,9 +61,9 @@ static void pane_boundaries(struct posirc_app *app, struct ui_colors *colors)
             draw(app, colors, 12, columns);
             for (row = 1; row < 10; ++row) {
                 if (columns >= 70)
-                    CHECK((mvinch(row, 20) & (A_CHARTEXT | A_ALTCHARSET)) == (ACS_VLINE & (A_CHARTEXT | A_ALTCHARSET)));
+                    CHECK(cell(row, 20, &attributes, &pair, &combining) == separator);
                 if (columns >= 100)
-                    CHECK((mvinch(row, columns - 21) & (A_CHARTEXT | A_ALTCHARSET)) == (ACS_VLINE & (A_CHARTEXT | A_ALTCHARSET)));
+                    CHECK(cell(row, columns - 21, &attributes, &pair, &combining) == separator);
             }
             if (columns >= 100) {
                 CHECK(cell(1, columns - 20, &attributes, &pair, &combining) == L'U');

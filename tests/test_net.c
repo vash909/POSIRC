@@ -299,7 +299,9 @@ static void serve(int listener, SSL_CTX *context, enum scenario scenario, int re
                 expect_line(tls, "QUIT :A presto 日\r\n");
             }
         }
-        (void)SSL_shutdown(tls);
+        /* Error-path fixtures can end with a fatal SSL_read error. OpenSSL
+         * forbids SSL_shutdown after that; reply only to a clean close_notify. */
+        if (SSL_get_shutdown(tls) & SSL_RECEIVED_SHUTDOWN) (void)SSL_shutdown(tls);
     }
     SSL_free(tls);
     (void)close(socket_fd);

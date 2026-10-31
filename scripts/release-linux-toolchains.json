@@ -206,5 +206,20 @@
     "arch": "sh4eb",
     "bits": 32,
     "qemu_cpu": "sh7785"
+  },
+  {
+    "arch": "m68k",
+    "toolchain_arch": "m68k-68xxx",
+    "url": "https://toolchains.bootlin.com/downloads/releases/toolchains/m68k-68xxx/tarballs/m68k-68xxx--musl--stable-2026.08-1.tar.xz",
+    "sha256": "0106d2a0ec1af1f6d80188d9a89433d6637dd28fc59d5511ff34ba87d05feab4",
+    "components": {
+      "binutils": "2.45.1",
+      "gcc": "15.3.0",
+      "gdb": "16.3",
+      "linux-headers": "5.10.269",
+      "musl": "1.2.6"
+    },
+    "bits": 32,
+    "qemu_cpu": "m68040"
   }
 ]

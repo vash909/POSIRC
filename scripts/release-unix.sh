@@ -18,6 +18,7 @@ cc=cc
 make_command=make
 curses_libs=-lncursesw
 tls_libs='-lssl -lcrypto'
+openssl_command=openssl
 case "$RELEASE_OS" in
 openeuler)
     dnf install -y gcc make ncurses-devel openssl-devel ca-certificates glibc-langpack-en
@@ -40,7 +41,8 @@ solaris|omnios|openindiana)
     cppflags="$cppflags -I/usr/include/ncursesw -I/usr/include/ncurses"
     cc=gcc
     flags="$flags -m64 -D__EXTENSIONS__"
-    ldflags='-m64 -L/usr/lib/amd64 -R/usr/lib/amd64'
+    ldflags='-m64 -L/usr/gnu/lib/amd64 -R/usr/gnu/lib/amd64 -L/usr/lib/amd64 -R/usr/lib/amd64'
+    if [ "$RELEASE_OS" = omnios ]; then curses_libs=-lncurses; fi
     libs='-lsocket -lnsl -lrt'
     command -v gmake >/dev/null 2>&1 && make_command=gmake
     ;;
@@ -48,12 +50,18 @@ tribblix)
     PATH="/usr/gnu/bin:/opt/gcc14/bin:/opt/gcc13/bin:/opt/gcc12/bin:$PATH"; export PATH
     zap install-overlay develop
     cc=gcc
+    cppflags="$cppflags -I/usr/include/ncursesw -I/usr/include/ncurses"
     flags="$flags -m64 -D__EXTENSIONS__"
     ldflags='-m64 -L/usr/lib/amd64 -R/usr/lib/amd64'
     libs='-lsocket -lnsl -lrt'
     command -v gmake >/dev/null 2>&1 && make_command=gmake
     ;;
 dragonflybsd|midnightbsd|ghostbsd|hardenedbsd|opnsense|nextbsd)
+    if [ "$RELEASE_OS" = dragonflybsd ]; then
+        pkg install -y ncurses
+        cppflags="$cppflags -I/usr/local/include/ncursesw -I/usr/local/include"
+        ldflags='-L/usr/local/lib -Wl,-rpath,/usr/local/lib'
+    fi
     if ! command -v make >/dev/null 2>&1; then
         pkg install -y gmake
         make_command=gmake
@@ -65,8 +73,16 @@ dragonflybsd|midnightbsd|ghostbsd|hardenedbsd|opnsense|nextbsd)
     ;;
 *) exit 1 ;;
 esac
+if [ "$RELEASE_OS" = openindiana ]; then
+    pkg_status=0
+    pkg install --accept library/security/openssl-3 || pkg_status=$?
+    case "$pkg_status" in 0|4) ;; *) exit "$pkg_status" ;; esac
+    cppflags="$cppflags -I/usr/openssl/3/include"
+    ldflags="$ldflags -L/usr/openssl/3/lib/amd64 -R/usr/openssl/3/lib/amd64"
+    openssl_command=/usr/openssl/3/bin/openssl
+fi
 "$cc" --version
-openssl version -a
+"$openssl_command" version -a
 # Libraries installed by these OS package managers remain runtime dependencies.
 if command -v pkg-config >/dev/null 2>&1 && pkg-config --exists ncursesw openssl; then
     cppflags="$cppflags $(pkg-config --cflags ncursesw openssl)"
@@ -89,7 +105,7 @@ cp docs/releases/INSTALL.txt "$stage/INSTALL.txt"
     printf 'Libraries: OS packages; see dependencies.txt and installed packages below\n'
     uname -a
     "$cc" --version
-    openssl version -a
+    "$openssl_command" version -a
     cat "$stage/dependencies.txt"
     case "$RELEASE_OS" in
     openeuler) rpm -q glibc openssl-libs ncurses-libs ;;

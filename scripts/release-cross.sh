@@ -37,7 +37,7 @@ if [ ! -f "$prefix/complete" ]; then
     (
         cd "$work/openssl"
         perl ./Configure "linux-generic$bits" no-shared no-tests no-asm no-dso no-module \
-            --cross-compile-prefix="$cross_prefix" --prefix="$prefix" --libdir=lib --openssldir=/etc/ssl
+            --cross-compile-prefix="$cross_prefix" --prefix="$prefix" --libdir=lib --openssldir=/etc/ssl -latomic
         make -j2
         make install_sw
         cp LICENSE.txt "$prefix/licenses/OpenSSL-LICENSE.txt"
@@ -66,7 +66,7 @@ make clean
 make all test ui-test integration-test CC="$compiler" CFLAGS="$flags" \
     CPPFLAGS="-Iinclude -I$prefix/include -I$prefix/include/ncursesw" LDFLAGS=-static \
     CURSES_LIBS="$prefix/lib/libncursesw.a" TLS_LIBS="$prefix/lib/libssl.a $prefix/lib/libcrypto.a" \
-    LDLIBS='-pthread -ldl'
+    LDLIBS='-pthread -ldl -latomic'
 version=$(sed -n 's/^#define POSIRC_VERSION "\([^"]*\)"/\1/p' include/app.h)
 test "$(./posirc --version)" = "POSIRC $version"
 if readelf -l posirc | grep INTERP; then exit 1; fi

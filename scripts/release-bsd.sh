@@ -10,7 +10,7 @@ case "$version" in *-beta.[0-9]*) ;; *) exit 1 ;; esac
 name="posirc-$version-$RELEASE_TARGET"
 stage="dist/$name"
 mkdir -p "$stage"
-flags='-std=c99 -O2 -Wall -Wextra -Wpedantic -Werror'
+flags='-std=c99 -O2 -Wall -Wextra -pedantic -Werror'
 case "$RELEASE_OS" in
 freebsd) test "$(uname -s)" = FreeBSD; curses_libs=-lncursesw ;;
 openbsd) test "$(uname -s)" = OpenBSD; curses_libs=-lcurses ;;
