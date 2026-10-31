@@ -1,7 +1,7 @@
 #general purpose gitignore template 
+
 *.o
-/benchmarks 
-#local scripts for benachmarking (if you need them write an email iu1bot(at)xzgroup(dot)net )
+/benchmarks/ 
 /posirc
 /tests/test_app
 /tests/test_config
