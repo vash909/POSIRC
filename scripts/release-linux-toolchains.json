@@ -247,5 +247,83 @@
     },
     "compiler_build": "11.2.1 20211120",
     "libc_build": "1.2.2-git-50-gb76f37fd"
+  },
+  {
+    "arch": "alpha",
+    "bits": 64,
+    "qemu_cpu": "",
+    "url": "apt",
+    "sha256": "-",
+    "libc": "glibc",
+    "components": {
+      "glibc": "2.39",
+      "gcc": "13.2.0"
+    },
+    "apt_triple": "alpha-linux-gnu"
+  },
+  {
+    "arch": "hppa",
+    "bits": 32,
+    "qemu_cpu": "",
+    "url": "apt",
+    "sha256": "-",
+    "libc": "glibc",
+    "components": {
+      "glibc": "2.39",
+      "gcc": "13.2.0"
+    },
+    "apt_triple": "hppa-linux-gnu"
+  },
+  {
+    "arch": "sparc64",
+    "bits": 64,
+    "qemu_cpu": "",
+    "url": "apt",
+    "sha256": "-",
+    "libc": "glibc",
+    "components": {
+      "glibc": "2.39",
+      "gcc": "13.2.0"
+    },
+    "apt_triple": "sparc64-linux-gnu"
+  },
+  {
+    "arch": "sparc",
+    "bits": 32,
+    "qemu_cpu": "",
+    "url": "https://toolchains.bootlin.com/downloads/releases/toolchains/sparcv8/tarballs/sparcv8--uclibc--stable-2026.08-1.tar.xz",
+    "sha256": "1654a9173b8138c101facf59708ea736029ae3cca2f27fe2e084257fc8815cbb",
+    "libc": "uclibc",
+    "components": {
+      "uclibc": "1.0.59",
+      "gcc": "15.3.0"
+    },
+    "extra_cflags": ""
+  },
+  {
+    "arch": "sparc32plus",
+    "bits": 32,
+    "qemu_cpu": "",
+    "url": "https://toolchains.bootlin.com/downloads/releases/toolchains/sparcv8/tarballs/sparcv8--uclibc--stable-2026.08-1.tar.xz",
+    "sha256": "1654a9173b8138c101facf59708ea736029ae3cca2f27fe2e084257fc8815cbb",
+    "libc": "uclibc",
+    "components": {
+      "uclibc": "1.0.59",
+      "gcc": "15.3.0"
+    },
+    "extra_cflags": "-mcpu=v9"
+  },
+  {
+    "arch": "xtensa",
+    "bits": 32,
+    "qemu_cpu": "dc233c",
+    "url": "https://toolchains.bootlin.com/downloads/releases/toolchains/xtensa-lx60/tarballs/xtensa-lx60--uclibc--stable-2026.08-1.tar.xz",
+    "sha256": "9a67deec92245f785625a68f904edff3c1d7365f7de8f90fb20018f7b6e42b96",
+    "libc": "uclibc",
+    "components": {
+      "uclibc": "1.0.59",
+      "gcc": "15.3.0"
+    },
+    "extra_cflags": ""
   }
 ]
