@@ -360,7 +360,7 @@ static int history_has(const struct posirc_app *app, const char *text)
 static void app_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file,
                          enum scenario scenario, const char *expected, int version, const char *host)
 {
-    char port[16];
+    char port[6];
     fprintf(stderr, "TLS scenario %d, protocol %d, host %s\n", (int)scenario, version, host);
     pid_t child = start_server(cert, key, scenario, port, sizeof port, version, -1);
     struct posirc_app app;
@@ -374,7 +374,11 @@ static void app_scenario(X509 *cert, EVP_PKEY *key, const char *ca_file,
     (void)snprintf(app.nick, sizeof app.nick, "tester");
     (void)snprintf(app.autojoin, sizeof app.autojoin, "#room");
     REQUIRE(posirc_app_setup(&app, ca_file) == 0);
-    REQUIRE(posirc_app_connect(&app, host, port) == 0);
+    if (scenario == CHAT) {
+        (void)snprintf(app.server, sizeof app.server, "%s", host);
+        (void)snprintf(app.server_port, sizeof app.server_port, "%s", port);
+        REQUIRE(posirc_app_connect(&app, app.server, app.server_port) == 0);
+    } else REQUIRE(posirc_app_connect(&app, host, port) == 0);
     while (net_active(app.net) && time(NULL) < deadline) {
         posirc_app_step(&app, -1, 10);
         if (scenario == DROP_QUEUED && app.registered && app.target[0] != '\0') {

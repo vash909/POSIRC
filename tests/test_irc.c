@@ -82,6 +82,11 @@ static void parsing(void)
     CHECK(irc_parse(bad_command, &message) == -1);
     CHECK(irc_parse(too_many, &message) == -1);
     CHECK(irc_nick_valid("nick_123"));
+    CHECK(irc_local_nick_valid("abcdefghijklmno"));
+    CHECK(!irc_local_nick_valid("abcdefghijklmnop"));
+    CHECK(irc_nick_valid("abcdefghijklmnop")); /* Remote nicknames keep their existing limit. */
+    CHECK(irc_local_nick_valid("日日日日日日日日日日日日日日日"));
+    CHECK(!irc_local_nick_valid("日日日日日日日日日日日日日日日日"));
     CHECK(!irc_nick_valid(NULL));
     CHECK(!irc_nick_valid("1nick"));
     CHECK(!irc_nick_valid("nick\r\nJOIN #other"));

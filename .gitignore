@@ -2,6 +2,7 @@
 *.o
 /posirc
 /tests/test_app
+/tests/test_config
 /tests/test_irc
 /tests/test_net
 /tests/test_text

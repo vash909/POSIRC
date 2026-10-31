@@ -127,6 +127,18 @@ int irc_nick_valid(const char *text)
     return 1;
 }
 
+int irc_local_nick_valid(const char *text)
+{
+    size_t count = 0;
+    uint32_t ignored;
+    if (!irc_nick_valid(text)) return 0;
+    while (*text != '\0') {
+        text += utf8_decode(text, &ignored);
+        if (++count > IRC_LOCAL_NICK_CHARACTERS) return 0;
+    }
+    return 1;
+}
+
 static unsigned char fold(unsigned char c, int mapping)
 {
     if (c >= 'A' && c <= 'Z')

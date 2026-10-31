@@ -161,6 +161,30 @@ make integration-test
 
 ## Connect
 
+The interactive client remembers the last server, TLS port and nickname in
+`$HOME/.posirc`, a small editable text file:
+
+```text
+server=irc.azzurra.chat
+port=6697
+nick=tuonick
+```
+
+Launching `./posirc` reuses these values and connects to the saved server.
+Explicit `-s`, `-p` and `-n` options take precedence. The latest values, including
+changes made with `/connect` and `/nick`, are saved when the TUI exits normally
+or handles a termination signal. Saving replaces the file through a temporary
+file; a forced kill cannot save. A missing file uses the usual defaults.
+Without `HOME`, persistence is unavailable on any platform.
+
+The file parser copies known values into existing fields without semantic
+validation. Values are bounded by those fields; the saved nickname is shortened
+to **15 Unicode characters**. Explicit `-n` and `/nick` choices longer than 15
+characters are rejected. This limit applies to your chosen nickname, not other
+users' nicknames or WHOIS targets. Existing IRC/network checks remain in place.
+Pipelines keep using explicit arguments and neither read nor write this file.
+No settings watcher or additional persistent configuration buffer is needed.
+
 Replace `irc.example.net` with your server:
 
 ```sh
@@ -185,7 +209,7 @@ to recipients. Server errors remain visible in the transcript.
 
 `-s` connects on startup; without it, POSIRC stays offline until `/connect`.
 `-p` sets the startup port (default 6697); `/connect` takes its own optional port.
-`-n` sets the nickname (default `posirc`), and `-j` joins one channel after each
+`-n` overrides the nickname (saved TUI value, otherwise `posirc`), and `-j` joins one channel after each
 successful registration. Quote channel names in shell commands.
 `--help` and `--version` work without a terminal.
 
@@ -279,7 +303,7 @@ conversation list indicates unread activity.
 
 | Command | Action |
 | --- | --- |
-| `/connect host [port]` | Resolve and connect using verified TLS; default port 6697 |
+| `/connect host [port]` | Resolve and connect using verified TLS; reuse the last port, initially 6697 |
 | `/nick nickname` | Set the offline nickname or request a nickname change |
 | `/set [--quit text \| --part text \| --realname text \| --reset]` | View or change personal settings for this process |
 | `/join #channel [key]` | Join a channel, selecting it on server confirmation |
@@ -770,6 +794,7 @@ and [C kernels](benchmarks/core.c) for the exact workloads.
 | File | Responsibility |
 | --- | --- |
 | `src/main.c` | CLI options, UI/pipe mode selection and signal handling |
+| `src/config.c`, `include/config.h` | Small server/port/nickname file, loaded at TUI startup and saved at exit |
 | `src/pipe.c`, `include/pipe.h` | Bounded stdin streaming, channel TSV output and batch completion |
 | `src/net.c`, `include/net.h` | DNS worker, TCP/TLS state machine, bounded queue and poll |
 | `src/irc.c`, `include/irc.h` | Incremental framing, message parsing and identifier checks |
@@ -827,7 +852,7 @@ Only IPv4 loopback transport has been exercised by the current integration
 suite; IPv6 address handling is implemented but still needs an IPv6 test host.
 
 Not implemented yet: SASL, server passwords, IRCv3 capability negotiation,
-extended tagged-message limits, automatic reconnect, persistent configuration,
+extended tagged-message limits, automatic reconnect,
 scrollback storage on disk. Servers requiring SASL or a password cannot be used yet. The UI does
 not split oversized messages automatically or implement outbound flood pacing.
 

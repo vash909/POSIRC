@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "app.h"
+#include "config.h"
 #include "ui.h"
 #include "pipe.h"
 
@@ -27,9 +28,9 @@ static void usage(FILE *stream, const char *program)
     fprintf(stream,
             "Usage: %s [-s server] [-p port] [-n nickname] [-j channel] [-c ca-file] [-o]\n"
             "       %s --help | --version\n"
-            "  -s server    Connect on startup (otherwise use /connect)\n"
-            "  -p port      TLS port, default 6697\n"
-            "  -n nickname  Initial nickname, default posirc\n"
+            "  -s server    Connect on startup (overrides ~/.posirc in the TUI)\n"
+            "  -p port      TLS port (saved TUI value, otherwise 6697)\n"
+            "  -n nickname  Initial nickname, at most 15 characters\n"
             "  -j channel   Join after registration\n"
             "  -c ca-file   PEM trust file instead of system CA paths\n"
             "  -o           Stream channel messages to stdout; stay connected after stdin EOF\n"
@@ -42,7 +43,8 @@ int main(int argc, char **argv)
 {
     struct sigaction action;
     struct posirc_app app;
-    const char *term, *server = NULL, *port = "6697", *nick = "posirc";
+    const char *term, *server = NULL, *port = NULL, *nick = NULL;
+    char *config_path;
     const char *channel = "", *ca_file = NULL;
     int option, result, pipe_input, pipe_output = 0;
 
@@ -67,7 +69,7 @@ int main(int argc, char **argv)
         default: usage(stderr, argv[0]); return EXIT_FAILURE;
         }
     }
-    if (optind != argc || !irc_nick_valid(nick) ||
+    if (optind != argc || (nick != NULL && !irc_local_nick_valid(nick)) ||
         (*channel != '\0' && (!irc_atom_valid(channel, POSIRC_TARGET_CAPACITY - 1) ||
                               strchr("#&+!", channel[0]) == NULL))) {
         usage(stderr, argv[0]);
@@ -105,19 +107,31 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
     if (pipe_input || pipe_output)
-        return posirc_pipe_run(server, port, nick, channel, ca_file, pipe_input, pipe_output, &stop_requested) == 0
+        return posirc_pipe_run(server, port != NULL ? port : "6697", nick != NULL ? nick : "posirc",
+                               channel, ca_file, pipe_input, pipe_output, &stop_requested) == 0
             ? EXIT_SUCCESS : EXIT_FAILURE;
     posirc_app_init(&app);
-    (void)snprintf(app.nick, sizeof app.nick, "%s", nick);
+    config_path = posirc_config_path();
+    if (config_path != NULL && posirc_config_load(&app, config_path) != 0)
+        fputs("POSIRC: cannot read ~/.posirc.\n", stderr);
+    free(config_path);
+    if (nick != NULL) (void)snprintf(app.nick, sizeof app.nick, "%s", nick);
     (void)snprintf(app.autojoin, sizeof app.autojoin, "%s", channel);
     if (posirc_app_setup(&app, ca_file) != 0) {
         fputs("POSIRC: cannot allocate transport or CA file path is too long.\n", stderr);
         posirc_app_destroy(&app);
         return EXIT_FAILURE;
     }
-    if (server != NULL)
-        (void)posirc_app_connect(&app, server, port);
+    if (port != NULL) (void)snprintf(app.server_port, sizeof app.server_port, "%s", port);
+    if (server != NULL || app.server[0] != '\0')
+        (void)posirc_app_connect(&app, server != NULL ? server : app.server, port != NULL ? port : app.server_port);
     result = posirc_ui_run(&app, &stop_requested);
+    if (result == 0) {
+        config_path = posirc_config_path();
+        if (config_path != NULL && posirc_config_save(&app, config_path) != 0)
+            fputs("POSIRC: cannot save ~/.posirc.\n", stderr);
+        free(config_path);
+    }
     posirc_app_destroy(&app);
     return result == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

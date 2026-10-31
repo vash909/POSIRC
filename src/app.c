@@ -470,8 +470,9 @@ void posirc_app_init(struct posirc_app *app)
     support_defaults(app);
     settings_defaults(app);
     (void)snprintf(app->nick, sizeof app->nick, "posirc");
+    (void)snprintf(app->server_port, sizeof app->server_port, "6697");
     append_line(app, "Welcome to POSIRC " POSIRC_VERSION ". TLS is required for every connection.");
-    append_line(app, "Use /nick yournick, then /connect server [port]. Default port: 6697.");
+    append_line(app, "Use /nick yournick, then /connect server [port]. TLS port is remembered (initially 6697).");
     append_line(app, "Type /help for commands. Tab / Shift-Tab switches conversations.");
 }
 
@@ -499,12 +500,12 @@ int posirc_app_connect(struct posirc_app *app, const char *host, const char *por
         size_t index;
         for (index = 1; index < POSIRC_BUFFER_CAPACITY; ++index) buffer_free(&app->buffers[index]);
     }
-    (void)snprintf(app->server_port, sizeof app->server_port, "%s", port);
+    if (port != app->server_port) (void)snprintf(app->server_port, sizeof app->server_port, "%s", port);
     support_defaults(app);
     app->frame.length = 0;
     app->registered = app->case_mapping = 0;
     select_target(app, "");
-    (void)snprintf(app->server, sizeof app->server, "%s", host);
+    if (host != app->server) (void)snprintf(app->server, sizeof app->server, "%s", host);
     if (net_connect(app->net, host, port) != 0) {
         append_line(app, "Cannot start connection: check host and numeric port (1-65535).");
         return -1;
@@ -663,7 +664,7 @@ void posirc_app_submit(struct posirc_app *app, const char *line)
             append_line(app, setting == app->realname ? "Real name saved for the next IRC registration." : "Message setting updated.");
         }
     } else if (strcmp(command, "/help") == 0) {
-        append_line(app, "/connect host [port]  Connect with verified TLS (default 6697)");
+        append_line(app, "/connect host [port]  Connect with verified TLS (last port, initially 6697)");
         append_line(app, "/nick nickname        Set or change your nickname");
         append_line(app, "/set --quit|--part|--realname text | /set --reset | /set");
         append_line(app, "/join #channel [key]  Join a channel; select it after server confirmation");
@@ -725,11 +726,11 @@ void posirc_app_submit(struct posirc_app *app, const char *line)
         if (argument == NULL || *cursor != '\0')
             append_line(app, "Usage: /connect host [port]");
         else
-            (void)posirc_app_connect(app, argument, extra != NULL ? extra : "6697");
+            (void)posirc_app_connect(app, argument, extra != NULL ? extra : app->server_port);
     } else if (strcmp(command, "/nick") == 0) {
         argument = take_word(&cursor);
-        if (!irc_nick_valid(argument) || *cursor != '\0') {
-            append_line(app, "Usage: /nick nickname (1-63 bytes; server nickname rules apply)");
+        if (!irc_local_nick_valid(argument) || *cursor != '\0') {
+            append_line(app, "Usage: /nick nickname (1-15 characters; server nickname rules apply)");
         } else if (net_active(app->net)) {
             if (!net_ready(app->net))
                 append_line(app, "Wait for TLS verification before changing nickname.");

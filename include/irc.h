@@ -7,6 +7,7 @@
  * are requested yet. Strings passed to the parser exclude CRLF. */
 #define IRC_WIRE_CAPACITY 512
 #define IRC_PARAM_CAPACITY 15
+#define IRC_LOCAL_NICK_CHARACTERS 15
 
 struct irc_frame {
     char data[IRC_WIRE_CAPACITY];
@@ -32,6 +33,9 @@ int irc_parse(char *line, struct irc_message *message);
  * locally; the server determines its own identifier policy and byte limits. */
 int irc_atom_valid(const char *text, size_t limit);
 int irc_nick_valid(const char *text);
+/* Local nickname choices are limited to 15 Unicode scalars, not wire bytes.
+ * Peers and server-assigned nicknames retain the existing 63-byte limit. */
+int irc_local_nick_valid(const char *text);
 /* mapping: 0 = RFC1459, 1 = strict RFC1459, 2 = ASCII. */
 int irc_equal(const char *left, const char *right, int mapping);
 
