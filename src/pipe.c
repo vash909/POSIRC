@@ -74,7 +74,9 @@ static void output_message(struct pipe_client *client, const char *nick, const c
         used += length;
     }
     text[used] = '\0';
-    if (fprintf(stdout, "%s\t%s\n", name, text) < 0 || fflush(stdout) == EOF)
+    /* Also inspect the stream error: some libc implementations leave fflush
+     * returning zero after a failed buffered write (for example, EPIPE). */
+    if (fprintf(stdout, "%s\t%s\n", name, text) < 0 || fflush(stdout) == EOF || ferror(stdout))
         fail(client, "Cannot write stdout (downstream pipe closed or output error).");
 }
 
