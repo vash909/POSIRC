@@ -27,7 +27,7 @@ targets = {
 }
 if arch in targets:
     elf_class, byte_order, machine, emulator = targets[arch]
-    interpreter = pathlib.Path('/usr/bin/qemu-' + emulator + '-static')
+    interpreter = pathlib.Path(os.environ.get('POSIRC_QEMU', '/usr/bin/qemu-' + emulator + '-static'))
     if not interpreter.is_file():
         raise SystemExit('Missing interpreter: ' + str(interpreter))
     magic = bytearray(b'\x7fELF' + bytes([elf_class, byte_order, 1]) + bytes(9))
@@ -37,5 +37,8 @@ if arch in targets:
     escape = lambda b: ''.join('\\x%02x' % v for v in b)
     registration = ':posirc-qemu-%s:M::%s:%s:%s:F\n' % (
         arch, escape(magic), escape(mask), interpreter)
+    previous = pathlib.Path('/proc/sys/fs/binfmt_misc/posirc-qemu-' + arch)
+    if previous.exists():
+        previous.write_text('-1\n')
     pathlib.Path('/proc/sys/fs/binfmt_misc/register').write_text(registration)
     print(pathlib.Path('/proc/sys/fs/binfmt_misc/posirc-qemu-' + arch).read_text())

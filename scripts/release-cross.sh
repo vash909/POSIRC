@@ -17,7 +17,7 @@ work="$root/cross/$RELEASE_ARCH"
 prefix="$root/cross/prefix/$RELEASE_ARCH"
 mkdir -p "$work" "$prefix/licenses"
 fetch() {
-    curl -fsSL --retry 3 "$1" -o "$2"
+    curl -4 -fsSL --connect-timeout 20 --retry 3 "$1" -o "$2"
     printf '%s  %s\n' "$3" "$2" | sha256sum -c -
 }
 if [ "$url" = apt ]; then
@@ -28,13 +28,23 @@ else
     mkdir -p "$work/toolchain"
     tar -xf "$work/toolchain.tar.xz" -C "$work/toolchain" --strip-components=1
     if [ -f "$work/toolchain/relocate-sdk.sh" ]; then (cd "$work/toolchain" && ./relocate-sdk.sh); fi
-    compiler=$(find "$work/toolchain/bin" -maxdepth 1 -name '*-gcc' | head -1)
+    if [ "$RELEASE_ARCH" = hexagon ]; then
+        compiler=$(find "$work/toolchain" -name hexagon-unknown-linux-musl-clang | head -1)
+    else
+        compiler=$(find "$work/toolchain/bin" -maxdepth 1 -name '*-gcc' | head -1)
+    fi
 fi
 test -n "$compiler"
 cross_prefix=${compiler%gcc}
+if [ "$RELEASE_ARCH" = hexagon ]; then
+    cross_prefix=${compiler%clang}
+    export PATH="$(dirname "$compiler"):$PATH"
+    sudo env RELEASE_ARCH="$RELEASE_ARCH" POSIRC_QEMU="$(dirname "$compiler")/qemu-hexagon" python3 scripts/release-binfmt.py
+fi
 triple=$($compiler -dumpmachine)
 linkflags=-static
 atomic_libs=-latomic
+if [ "$RELEASE_ARCH" = hexagon ]; then atomic_libs=; fi
 if [ "$libc" = glibc ]; then
     export QEMU_LD_PREFIX="/usr/$triple"
     linkflags=-static-libgcc
@@ -50,8 +60,15 @@ if [ ! -f "$prefix/complete" ]; then
     tar -xf "$work/ncurses.tar.gz" -C "$work/ncurses" --strip-components=1
     (
         cd "$work/openssl"
+        if [ "$RELEASE_ARCH" = hexagon ]; then
+            # OpenSSL's generic target normally selects GCC; this SDK uses Clang.
+            export CC="${cross_prefix}clang" AR="${cross_prefix}ar" RANLIB="${cross_prefix}ranlib"
+            openssl_cross_prefix=
+        else
+            openssl_cross_prefix="$cross_prefix"
+        fi
         perl ./Configure "linux-generic$bits" no-shared no-tests no-asm no-dso no-module \
-            --cross-compile-prefix="$cross_prefix" --prefix="$prefix" --libdir=lib --openssldir=/etc/ssl -latomic $extra_cflags
+            --cross-compile-prefix="$openssl_cross_prefix" --prefix="$prefix" --libdir=lib --openssldir=/etc/ssl $atomic_libs $extra_cflags
         make -j2
         make install_sw
         cp LICENSE.txt "$prefix/licenses/OpenSSL-LICENSE.txt"
@@ -78,11 +95,18 @@ if [ ! -f "$prefix/complete" ]; then
         fetch_url="https://raw.githubusercontent.com/wbx-github/uclibc-ng/v$libc_version/COPYING.LIB"
         ;;
     esac
-    curl -fsSL --retry 3 "$fetch_url" -o "$prefix/licenses/$libc-LICENSE"
+    curl -4 -fsSL --connect-timeout 20 --retry 3 "$fetch_url" -o "$prefix/licenses/$libc-LICENSE"
+    if [ "$RELEASE_ARCH" = hexagon ]; then
+        curl -4 -fsSL --retry 3 https://raw.githubusercontent.com/qualcomm/musl/hexagon-v1.2.4-mar-2026/COPYRIGHT \
+            -o "$prefix/licenses/musl-LICENSE"
+        curl -4 -fsSL --retry 3 https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-22.1.0/compiler-rt/LICENSE.TXT \
+            -o "$prefix/licenses/compiler-rt-LICENSE.txt"
+    else
     for license in COPYING3 COPYING.RUNTIME; do
-        curl -fsSL --retry 3 "https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-$gcc_version/$license" \
+        curl -4 -fsSL --connect-timeout 20 --retry 3 "https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-$gcc_version/$license" \
             -o "$prefix/licenses/gcc-$license"
     done
+    fi
     touch "$prefix/complete"
 fi
 flags="-std=c99 -O2 -Wall -Wextra -Wpedantic -Werror $extra_cflags"
