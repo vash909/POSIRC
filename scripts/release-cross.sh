@@ -21,7 +21,7 @@ fetch() {
     printf '%s  %s\n' "$3" "$2" | sha256sum -c -
 }
 if [ "$url" = apt ]; then
-    sudo apt-get install -y "gcc-$apt_triple" "libc6-dev-${RELEASE_ARCH}-cross"
+    sudo apt-get install -y "gcc-$apt_triple" "libc6-dev-${RELEASE_ARCH}-cross" locales
     compiler="/usr/bin/$apt_triple-gcc"
 else
     fetch "$url" "$work/toolchain.tar.xz" "$checksum"
@@ -47,6 +47,13 @@ atomic_libs=-latomic
 if [ "$RELEASE_ARCH" = hexagon ]; then atomic_libs=; fi
 if [ "$libc" = glibc ]; then
     export QEMU_LD_PREFIX="/usr/$triple"
+    # glibc locale files contain integers in the target byte order.
+    # The x86 runner's C.UTF-8 files work for Alpha but not for SPARC/PA-RISC.
+    mkdir -p "$work/locales"
+    locale_endian=--big-endian
+    if [ "$RELEASE_ARCH" = alpha ]; then locale_endian=--little-endian; fi
+    localedef "$locale_endian" --no-archive -i en_US -f UTF-8 "$work/locales/en_US.UTF-8"
+    export LOCPATH="$work/locales"
     linkflags=-static-libgcc
     atomic_libs='-Wl,-Bstatic -latomic -Wl,-Bdynamic'
 fi
