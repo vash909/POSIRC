@@ -13,7 +13,9 @@ Linux *-musl and *-uclibc archives are static, including their C library,
 OpenSSL and wide ncurses. They do not require shared OpenSSL/ncurses or glibc.
 Linux *-glibc archives require glibc 2.39 or newer; OpenSSL and wide ncurses are
 embedded. Install a UTF-8 locale for glibc builds. Embedded libraries receive
-security updates through new POSIRC releases.
+security updates through new POSIRC releases. For static uClibc builds the
+release includes matching library sources/build recipes; see RELINK.txt in
+the source kit or binary archive licenses/ directory.
 
 The openEuler LoongArch64 archive uses the named distribution's glibc,
 openssl-libs and ncurses-libs packages, plus CA certificates and UTF-8 locale.

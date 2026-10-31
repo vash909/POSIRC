@@ -1,0 +1,28 @@
+Rebuilding and relinking the static uClibc-ng packages
+
+POSIRC's matching source archive contains the complete client, Makefile, tests
+and release scripts. The companion posirc-VERSION-uclibc-source.tar.gz contains:
+- unmodified uClibc-ng 1.0.59 sources;
+- the exact Bootlin Buildroot tree (including uClibc patches/build recipes);
+- per-target Buildroot and generated uClibc configurations from the tested SDKs.
+The binary archive includes those configurations, the SDK's README and LGPL text.
+
+To modify/rebuild the C library and relink POSIRC:
+1. Extract the Buildroot and uClibc source archives. Apply your library changes.
+2. In Buildroot, copy the desired TARGET.buildroot.config to .config, run
+   make olddefconfig, and follow its uClibc build recipe using your changed
+   source (the Buildroot local-source override can select that source tree).
+   make sdk generates a compiler/sysroot containing the rebuilt library.
+3. Extract POSIRC's matching source. In scripts/release-linux-toolchains.json,
+   point your target's SDK URL at the rebuilt SDK (file:// works) and replace
+   its SHA-256 with sha256sum's result. Clear cross/prefix/TARGET if present.
+4. Follow .github/workflows/portability-linux.yml to prepare the cross-build
+   host and QEMU. Set RELEASE_ARCH=TARGET and GITHUB_SHA to the source revision,
+   then run bash scripts/release-cross.sh. This rebuilds OpenSSL/ncurses and
+   links POSIRC against your SDK's C library; all client tests then execute.
+
+Alternatively build the libraries and run the source Makefile directly with
+your compiler, include/library paths and LDFLAGS=-static. Only packaging and
+emulated tests require the CI host tools; the installed POSIRC client does not.
+You may modify the library and relink/debug the combined program under the
+applicable licenses. These instructions impose no additional license terms.

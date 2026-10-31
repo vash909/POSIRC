@@ -134,6 +134,13 @@ stage="dist/$name"
 mkdir -p "$stage"
 cp posirc README.md LICENSE "$stage/"
 cp -r "$prefix/licenses" "$stage/"
+if [ "$libc" = uclibc ]; then
+    cp "$work/toolchain/README.txt" "$stage/licenses/toolchain-README.txt"
+    cp "$work/toolchain/buildroot.config" "$stage/licenses/toolchain-buildroot.config"
+    libc_config=$(find "$work/toolchain" -name uClibc_config.h | head -1)
+    cp "$libc_config" "$stage/licenses/uClibc_config.h"
+    cp docs/releases/RELINK.txt "$stage/licenses/RELINK.txt"
+fi
 if [ "$libc" = glibc ]; then
     readelf -d posirc | grep NEEDED > "$stage/dependencies.txt"
 fi

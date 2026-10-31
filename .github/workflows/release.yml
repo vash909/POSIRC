@@ -449,6 +449,7 @@ jobs:
           python3 scripts/release-verify.py assets dist "$SOURCE_SHA"
           git archive --format=tar.gz --prefix="posirc-$version/" \
             -o "dist/posirc-$version-source.tar.gz" "$SOURCE_SHA"
+          bash scripts/release-sourcekit.sh
           (cd dist && sha256sum *.tar.gz > SHA256SUMS)
           test -f "docs/releases/$tag.md"
           target_args=(--target "$SOURCE_SHA")

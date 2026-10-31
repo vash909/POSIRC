@@ -59,6 +59,8 @@ GPL license, installation instructions and `BUILD-INFO.txt`; dynamically linked
 packages also list their runtime dependencies. CA certificates and terminal
 descriptions remain necessary. Use `-c /path/to/ca-bundle.pem` when needed.
 Embedded library updates require installing a newer POSIRC binary.
+The companion uClibc source archive and [relinking instructions](docs/releases/RELINK.txt)
+include the matching library sources, build recipes and target configurations.
 
 `x86` requires i686-class hardware with CMOV and SSE2, not an original 80386.
 MIPS N32 and N64 use different pointer sizes and calling conventions; PowerPC

@@ -74,6 +74,9 @@ The CI generates UTF-8 locale data in the target's byte order: host x86 locale
 files cannot simply be reused on big-endian glibc targets.
 SPARC32 and Xtensa SDKs use uClibc-ng 1.0.59. Hexagon uses the SDK's
 `hexagon-v1.2.4-apr-2026` musl fork and LLVM compiler runtime.
+The release also supplies a companion uClibc source archive with the matching
+Buildroot recipes/patches and per-target configurations, alongside POSIRC's
+complete source. See [relinking instructions](RELINK.txt).
 Exact toolchain URLs/checksums are in `scripts/release-linux-toolchains.json`.
 
 `BUILD-INFO.txt` records the source commit, compiler, flags, dependency versions,
