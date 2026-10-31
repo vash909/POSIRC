@@ -354,7 +354,7 @@
   {
     "arch": "xtensaeb",
     "bits": 32,
-    "qemu_cpu": "fsf",
+    "qemu_cpu": "test_kc705_be",
     "url": "buildroot",
     "sha256": "189155cfd0f82b7b7938b306ca2926b68af177b68adcb8a786a737f7bf40c0bd",
     "libc": "uclibc",

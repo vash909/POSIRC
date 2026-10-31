@@ -39,7 +39,7 @@ local TLS 1.2/1.3 and real CLI pipe tests on its target ISA and operating system
 | --- | --- | --- |
 | Linux / musl | x86-64, x86 (i686), ARM64 LE/BE, ARMv7 LE/BE, ARMv6, RISC-V 32/64, PowerPC 32 BE and 64 BE/LE, s390x, MIPS32 LE/BE, MIPS64 N32 LE/BE, MicroBlaze LE/BE, OpenRISC, SuperH LE/BE, m68k, Hexagon | Static executable with OpenSSL and wide ncurses embedded |
 | Linux / glibc | Alpha, PA-RISC, SPARC64, MIPS64 N64 LE/BE | glibc 2.39+; OpenSSL and wide ncurses embedded |
-| Linux / uClibc-ng | SPARC V8, SPARC32PLUS, Xtensa dc233c LE / FSF BE | Static executable with OpenSSL and wide ncurses embedded |
+| Linux / uClibc-ng | SPARC V8, SPARC32PLUS, Xtensa dc233c LE / GCC builtin BE | Static executable with OpenSSL and wide ncurses embedded |
 | Linux / openEuler 24.03 LTS SP4 | LoongArch64 | Distribution glibc, OpenSSL and ncurses packages |
 | macOS 15+ | Apple Silicon / ARM64, Intel / x86-64 | Apple system libraries; OpenSSL and ncurses embedded |
 | FreeBSD 14.4 | x86-64, ARM64, RISC-V 64, PowerPC 64 BE | Base-system libraries |

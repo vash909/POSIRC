@@ -28,7 +28,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y gcc make perl xz-utils curl python3 file binutils qemu-user-static binfmt-support build-essential bison flex texinfo rsync bc cpio gawk wget unzip patch
       - name: Register the pinned QEMU user interpreters
         run: bash scripts/release-qemu.sh
-      - name: Cache the source-built Xtensa FSF SDK
+      - name: Cache the source-built Xtensa SDK
+        id: sdkcache
         if: matrix.arch == 'xtensaeb'
         uses: actions/cache@3edfce9056124e459a23f683a21433670d47daca
         with:
@@ -41,6 +42,11 @@ jobs:
           key: posirc-cross-v1-${{ matrix.arch }}-${{ hashFiles('scripts/release-cross.sh', 'scripts/release-linux-toolchains.json') }}
       - name: Build dependencies and run complete client test suite
         run: bash scripts/release-cross.sh
+      - uses: actions/cache/save@3edfce9056124e459a23f683a21433670d47daca
+        if: always() && matrix.arch == 'xtensaeb' && steps.sdkcache.outputs.cache-hit != 'true' && hashFiles('cross/xtensaeb-sdk.tar.gz') != ''
+        with:
+          path: cross/xtensaeb-sdk.tar.gz
+          key: posirc-xtensaeb-sdk-v1-${{ hashFiles('scripts/release-buildroot-sdk.sh', 'scripts/release-xtensaeb.config') }}
       - uses: actions/cache/save@3edfce9056124e459a23f683a21433670d47daca
         if: always() && steps.dependencies.outputs.cache-hit != 'true' && hashFiles('cross/prefix/**/complete') != ''
         with:

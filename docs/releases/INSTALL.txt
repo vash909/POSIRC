@@ -53,7 +53,7 @@ CPU cautions:
 - RISC-V32 uses ILP32D. MIPS32 uses O32; MIPS64 N32 has 32-bit pointers;
   MIPS64 N64 has 64-bit pointers. Both endian variants have separate archives.
 - m68k uses a 68040-compatible QEMU test CPU; not a promise for every 68000.
-- SuperH LE is SH4; BE uses an SH4A toolchain. Xtensa LE targets dc233c, BE targets the stock FSF core;
+- SuperH LE is SH4; BE uses an SH4A toolchain. Xtensa LE targets dc233c, BE targets GCC's builtin core configuration (QEMU test_kc705_be);
   a different Xtensa core configuration may have an incompatible ISA.
 - None of the PowerPC archives target classic Mac OS X.
 

@@ -65,7 +65,7 @@ verified TLS, certificate checks and both tested protocol versions remain enable
 | `sparc` | SPARC V8 Linux, big-endian, 32-bit pointers; uClibc-ng |
 | `sparc32plus` | SPARC Linux with V9 instructions and a 32-bit ABI; uClibc-ng |
 | `xtensa` | Xtensa dc233c little-endian; configured core ISA, not generic ESP hardware |
-| `xtensaeb` | Xtensa stock FSF big-endian Linux; SDK built from pinned Buildroot sources |
+| `xtensaeb` | Xtensa GCC builtin big-endian Linux; QEMU `test_kc705_be`, SDK built from pinned Buildroot sources |
 | `hexagon` | Hexagon Linux/musl, 32-bit; Qualcomm LLVM 22.1.8 SDK |
 | `loongarch64` | openEuler 24.03 LTS SP4's native LoongArch64 ABI and shared libraries |
 
@@ -74,7 +74,10 @@ OpenSSL/ncurses and GCC runtime helpers are embedded; the C library stays dynami
 The CI generates UTF-8 locale data in the target's byte order: host x86 locale
 files cannot simply be reused on big-endian glibc targets.
 SPARC32 and both Xtensa SDKs use uClibc-ng 1.0.59. The FSF big-endian SDK is
-built from the pinned Buildroot tree in CI; other Bootlin SDKs are prebuilt. Hexagon uses the SDK's
+built from the pinned Buildroot tree in CI; other Bootlin SDKs are prebuilt.
+GCC's builtin big-endian configuration has 32 address registers and enables
+MUL32, DIV32 and S32C1I. QEMU's older `fsf` model has 64 registers and lacks
+those instructions; `test_kc705_be` matches the compiler's ISA/ABI instead. Hexagon uses the SDK's
 `hexagon-v1.2.4-apr-2026` musl fork and LLVM compiler runtime.
 The release also supplies a companion uClibc source archive with the matching
 Buildroot recipes/patches and per-target configurations, alongside POSIRC's
