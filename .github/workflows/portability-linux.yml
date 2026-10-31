@@ -42,6 +42,26 @@ jobs:
           key: posirc-cross-v1-${{ matrix.arch }}-${{ hashFiles('scripts/release-cross.sh', 'scripts/release-linux-toolchains.json') }}
       - name: Build dependencies and run complete client test suite
         run: bash scripts/release-cross.sh
+      - name: Diagnose the big-endian Xtensa instruction and ABI profile
+        if: failure() && matrix.arch == 'xtensaeb'
+        run: |
+          set +e
+          compiler=$(find cross/xtensaeb/toolchain/bin -maxdepth 1 -name '*-gcc' | head -1)
+          "$compiler" -dM -E -x c /dev/null > /tmp/xtensa-macros.txt
+          cat /tmp/xtensa-macros.txt
+          readelf -h posirc
+          for cpu in fsf test_kc705_be; do
+            timeout 5 cross/qemu/usr/bin/qemu-xtensaeb -cpu "$cpu" -d in_asm -D "/tmp/xtensa-$cpu.log" -strace ./posirc --version
+            tail -n 100 "/tmp/xtensa-$cpu.log"
+          done
+          "${compiler%gcc}objdump" -d posirc > /tmp/xtensa-posirc-disassembly.txt
+          true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: failure() && matrix.arch == 'xtensaeb'
+        with:
+          name: xtensa-diagnostics
+          path: /tmp/xtensa-*.txt
+          retention-days: 7
       - uses: actions/cache/save@3edfce9056124e459a23f683a21433670d47daca
         if: always() && matrix.arch == 'xtensaeb' && steps.sdkcache.outputs.cache-hit != 'true' && hashFiles('cross/xtensaeb-sdk.tar.gz') != ''
         with:
