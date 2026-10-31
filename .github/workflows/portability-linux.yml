@@ -26,11 +26,8 @@ jobs:
           persist-credentials: false
       - name: Install build tools
         run: sudo apt-get update && sudo apt-get install -y gcc make perl xz-utils curl python3 file binutils qemu-user-static binfmt-support
-      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
-      - name: Enable the less common QEMU interpreters
-        run: |
-          sudo update-binfmts --enable
-          sudo -E python3 scripts/release-binfmt.py
+      - name: Register the pinned QEMU user interpreters
+        run: bash scripts/release-qemu.sh
       - id: dependencies
         uses: actions/cache@3edfce9056124e459a23f683a21433670d47daca
         with:

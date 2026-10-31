@@ -37,11 +37,10 @@ fi
 test -n "$compiler"
 cross_prefix=${compiler%gcc}
 if [ "$RELEASE_ARCH" = hexagon ]; then
+    sudo apt-get install -y musl
     cross_prefix=${compiler%clang}
     export PATH="$(dirname "$compiler"):$PATH"
-    if [ -f "$(dirname "$compiler")/qemu-hexagon" ]; then
-        sudo env RELEASE_ARCH="$RELEASE_ARCH" POSIRC_QEMU="$(dirname "$compiler")/qemu-hexagon" python3 scripts/release-binfmt.py
-    fi
+
 fi
 triple=$($compiler -dumpmachine)
 linkflags=-static
@@ -139,7 +138,7 @@ cp -r "$prefix/licenses" "$stage/"
 cp docs/releases/INSTALL.txt "$stage/INSTALL.txt"
 {
     printf 'POSIRC version: %s\nSource commit: %s\nTarget: linux-%s-%s\n' "$version" "$GITHUB_SHA" "$RELEASE_ARCH" "$libc"
-    printf 'Execution: QEMU user-mode via binfmt\nQEMU CPU: %s\nCompiler flags: %s\n' "$cpu" "$flags"
+    printf 'Execution: QEMU 11.1.3 user-mode via binfmt\nQEMU CPU: %s\nCompiler flags: %s\n' "$cpu" "$flags"
     printf 'Tests: unit, config, curses, local TLS integration, real CLI pipe scenarios\n'
     printf 'OpenSSL: 3.5.9 (no assembler)\nncurses: 6.6\n%s: %s\n' "$libc" "$libc_version"
     "$compiler" --version

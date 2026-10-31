@@ -12,6 +12,19 @@ import struct
 arch = os.environ['RELEASE_ARCH']
 # ELF class, byte order, machine, QEMU executable suffix.
 targets = {
+    'armebv7': (1, 2, 40, 'armeb'),
+    'riscv32': (1, 1, 243, 'riscv32'),
+    'powerpc': (1, 2, 20, 'ppc'),
+    'powerpc64': (2, 2, 21, 'ppc64'),
+    'mips': (1, 2, 8, 'mips'),
+    'mipsel': (1, 1, 8, 'mipsel'),
+    'mips64n32': (1, 2, 8, 'mipsn32'),
+    'mips64eln32': (1, 1, 8, 'mipsn32el'),
+    'mips64': (2, 2, 8, 'mips64'),
+    'mips64el': (2, 1, 8, 'mips64el'),
+    'sh4': (1, 1, 42, 'sh4'),
+    'sh4eb': (1, 2, 42, 'sh4eb'),
+    'm68k': (1, 2, 4, 'm68k'),
     'aarch64_be': (2, 2, 183, 'aarch64_be'),
     'microblaze': (1, 2, 189, 'microblaze'),
     'microblazeel': (1, 1, 189, 'microblazeel'),
@@ -27,7 +40,7 @@ targets = {
 }
 if arch in targets:
     elf_class, byte_order, machine, emulator = targets[arch]
-    interpreter = pathlib.Path(os.environ.get('POSIRC_QEMU', '/usr/bin/qemu-' + emulator + '-static'))
+    interpreter = pathlib.Path(os.environ.get('POSIRC_QEMU_DIR', '/usr/bin')) / ('qemu-' + emulator)
     if not interpreter.is_file():
         raise SystemExit('Missing interpreter: ' + str(interpreter))
     magic = bytearray(b'\x7fELF' + bytes([elf_class, byte_order, 1]) + bytes(9))
