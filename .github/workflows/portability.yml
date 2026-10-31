@@ -1,0 +1,161 @@
+name: Additional portability targets
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  vm:
+    name: ${{ matrix.os }} ${{ matrix.arch }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: dragonflybsd, release: '6.4.2', arch: x86_64, target: dragonflybsd6.4.2-x86_64 }
+          - { os: midnightbsd, release: '4.0.8', arch: x86_64, target: midnightbsd4.0.8-x86_64 }
+          - { os: ghostbsd, release: '26.2', arch: x86_64, target: ghostbsd26.2-x86_64 }
+          - { os: hardenedbsd, release: '15', arch: x86_64, target: hardenedbsd15-x86_64 }
+          - { os: opnsense, release: '26.7', arch: x86_64, target: opnsense26.7-x86_64 }
+          - { os: nextbsd, release: 'continuous', arch: x86_64, target: nextbsdcontinuous-x86_64 }
+          - { os: nextbsd, release: 'continuous', arch: aarch64, target: nextbsdcontinuous-aarch64 }
+          - { os: solaris, release: '11.4-gcc-14', arch: x86_64, target: solaris11.4-gcc-14-x86_64 }
+          - { os: omnios, release: 'r151058-build', arch: x86_64, target: omniosr151058-build-x86_64 }
+          - { os: openindiana, release: '202604-build', arch: x86_64, target: openindiana202604-build-x86_64 }
+          - { os: tribblix, release: '0m41.1', arch: x86_64, target: tribblix0m41.1-x86_64 }
+          - { os: hurd, release: '2025', arch: x86_64, target: hurd2025-x86_64 }
+          - { os: hurd, release: '2025', arch: i386, target: hurd2025-i386 }
+          - { os: haiku, release: 'r1beta6', arch: x86_64, target: haikur1beta6-x86_64 }
+          - { os: openeuler, release: '24.03-LTS-SP4', arch: loongarch64, target: openeuler24.03-LTS-SP4-loongarch64 }
+    env:
+      RELEASE_OS: ${{ matrix.os }}
+      RELEASE_ARCH: ${{ matrix.arch }}
+      RELEASE_TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Build and test in dragonflybsd
+        if: matrix.os == 'dragonflybsd'
+        uses: vmactions/dragonflybsd-vm@ef89b159d5b4837913b1bb7f6450402c49891a48
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in midnightbsd
+        if: matrix.os == 'midnightbsd'
+        uses: vmactions/midnightbsd-vm@8d049010700d278253fdbfb0f91f52e7d412ac89
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in ghostbsd
+        if: matrix.os == 'ghostbsd'
+        uses: vmactions/ghostbsd-vm@eb670421808e957f982536294270c1017d468fa1
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in hardenedbsd
+        if: matrix.os == 'hardenedbsd'
+        uses: vmactions/hardenedbsd-vm@f3748739801a89034c4d7147fe148bc9413b6b02
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in opnsense
+        if: matrix.os == 'opnsense'
+        uses: vmactions/opnsense-vm@c0b8dac79e53b1274c6d6cb0b1553aa87a5fa0c2
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in nextbsd
+        if: matrix.os == 'nextbsd'
+        uses: vmactions/nextbsd-vm@24825c5b4b5e99c6d16180de275955402eab5a32
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in solaris
+        if: matrix.os == 'solaris'
+        uses: vmactions/solaris-vm@214234520e38ecddf4606ecebe0e4afe34563248
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in omnios
+        if: matrix.os == 'omnios'
+        uses: vmactions/omnios-vm@76277fb0d771c7c27523b920539ab726e89ff215
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in openindiana
+        if: matrix.os == 'openindiana'
+        uses: vmactions/openindiana-vm@2ba4a6402f8310f96c3df443d203af14aa466ab2
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in tribblix
+        if: matrix.os == 'tribblix'
+        uses: vmactions/tribblix-vm@d90c5e13770ce20ec021f4d8da2bdcad48525f4a
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in hurd
+        if: matrix.os == 'hurd'
+        uses: vmactions/hurd-vm@59828763b3140b82fdcee69e71940d43539cb030
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in haiku
+        if: matrix.os == 'haiku'
+        uses: vmactions/haiku-vm@865b2c0c73d7574be04eab36e5fbe81cfb3676e9
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - name: Build and test in openeuler
+        if: matrix.os == 'openeuler'
+        uses: vmactions/openeuler-vm@b3d69608d9cc31b06fa0bc11609515bafa860544
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: scp
+          envs: RELEASE_OS RELEASE_ARCH RELEASE_TARGET GITHUB_SHA
+          run: sh scripts/release-unix.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: posirc-probe-${{ matrix.target }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
