@@ -37,7 +37,6 @@ fi
 test -n "$compiler"
 cross_prefix=${compiler%gcc}
 if [ "$RELEASE_ARCH" = hexagon ]; then
-    sudo apt-get install -y musl
     cross_prefix=${compiler%clang}
     export PATH="$(dirname "$compiler"):$PATH"
 
@@ -107,7 +106,7 @@ if [ ! -f "$prefix/complete" ]; then
     if [ "$RELEASE_ARCH" = hexagon ]; then
         curl -4 -fsSL --retry 3 https://raw.githubusercontent.com/qualcomm/musl/hexagon-v1.2.4-mar-2026/COPYRIGHT \
             -o "$prefix/licenses/musl-LICENSE"
-        curl -4 -fsSL --retry 3 https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-22.1.0/compiler-rt/LICENSE.TXT \
+        curl -4 -fsSL --retry 3 https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-22.1.8/compiler-rt/LICENSE.TXT \
             -o "$prefix/licenses/compiler-rt-LICENSE.txt"
     else
     for license in COPYING3 COPYING.RUNTIME; do

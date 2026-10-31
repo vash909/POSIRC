@@ -52,7 +52,7 @@ tests/test_config: tests/test_config.c src/config.o $(CORE_OBJS) include/config.
 tests/test_irc: tests/test_irc.c src/irc.o src/text.o include/irc.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ tests/test_irc.c src/irc.o src/text.o $(LDLIBS)
 
-tests/test_net: tests/test_net.c $(CORE_OBJS) include/app.h include/buffer.h include/net.h include/irc.h
+tests/test_net: tests/test_net.c tests/tls_test_keys.h $(CORE_OBJS) include/app.h include/buffer.h include/net.h include/irc.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ tests/test_net.c $(CORE_OBJS) $(TLS_LIBS) $(LDLIBS)
 
 integration-test: posirc tests/test_net FORCE

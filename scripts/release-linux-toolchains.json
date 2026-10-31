@@ -330,15 +330,15 @@
     "arch": "hexagon",
     "bits": 32,
     "qemu_cpu": "",
-    "url": "https://artifacts.codelinaro.org/artifactory/codelinaro-toolchain-for-hexagon/22.1.0_/clang+llvm-22.1.0-cross-hexagon-unknown-linux-musl_x86_64-linux-musl.tar.zst",
-    "sha256": "eb96c5dcd9a563ec09d829aed0546bb3b0387036fd560592f5161199c71306a8",
+    "url": "https://artifacts.codelinaro.org/artifactory/codelinaro-toolchain-for-hexagon/22.1.8________/clang+llvm-22.1.8-cross-hexagon-unknown-linux-musl_x86_64-linux-gnu.tar.zst",
+    "sha256": "bc122fe6473ead9693613a6ab3a177c5583653ff76b937e7578cf7de0273315b",
     "components": {
       "musl": "1.2.4",
       "gcc": "-"
     },
     "compiler": "clang",
     "musl_fork": "hexagon-v1.2.4-mar-2026",
-    "llvm_version": "22.1.0",
+    "llvm_version": "22.1.8",
     "extra_cflags": "--no-default-config"
   }
 ]
