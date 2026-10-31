@@ -221,5 +221,31 @@
     },
     "bits": 32,
     "qemu_cpu": "m68040"
+  },
+  {
+    "arch": "mips64",
+    "bits": 64,
+    "qemu_cpu": "",
+    "url": "https://musl.cc/mips64-linux-musl-cross.tgz",
+    "sha256": "a0e62bf38f33664e825987ab8c191c75032f5189c6103a25a8adc0361e63a1cf",
+    "components": {
+      "musl": "1.2.2",
+      "gcc": "11.2.0"
+    },
+    "compiler_build": "11.2.1 20211120",
+    "libc_build": "1.2.2-git-50-gb76f37fd"
+  },
+  {
+    "arch": "mips64el",
+    "bits": 64,
+    "qemu_cpu": "",
+    "url": "https://musl.cc/mips64el-linux-musl-cross.tgz",
+    "sha256": "fdb3c2ae76f80d7145132a1ec3303362f310b8c6349cce151f3035d0515c35b0",
+    "components": {
+      "musl": "1.2.2",
+      "gcc": "11.2.0"
+    },
+    "compiler_build": "11.2.1 20211120",
+    "libc_build": "1.2.2-git-50-gb76f37fd"
   }
 ]

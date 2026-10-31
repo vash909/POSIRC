@@ -50,16 +50,16 @@ tribblix)
     PATH="/usr/gnu/bin:/opt/gcc14/bin:/opt/gcc13/bin:/opt/gcc12/bin:$PATH"; export PATH
     zap install-overlay develop
     cc=gcc
-    cppflags="$cppflags -I/usr/include/ncursesw -I/usr/include/ncurses"
+    cppflags="$cppflags -I/usr/gnu/include/ncursesw -I/usr/gnu/include"
     flags="$flags -m64 -D__EXTENSIONS__"
-    ldflags='-m64 -L/usr/lib/amd64 -R/usr/lib/amd64'
+    ldflags='-m64 -L/usr/gnu/lib/amd64 -R/usr/gnu/lib/amd64 -L/usr/lib/amd64 -R/usr/lib/amd64'
     libs='-lsocket -lnsl -lrt'
     command -v gmake >/dev/null 2>&1 && make_command=gmake
     ;;
 dragonflybsd|midnightbsd|ghostbsd|hardenedbsd|opnsense|nextbsd)
     if [ "$RELEASE_OS" = dragonflybsd ]; then
         pkg install -y ncurses
-        cppflags="$cppflags -I/usr/local/include/ncursesw -I/usr/local/include"
+        cppflags="$cppflags -I/usr/local/include/ncurses -I/usr/local/include"
         ldflags='-L/usr/local/lib -Wl,-rpath,/usr/local/lib'
     fi
     if ! command -v make >/dev/null 2>&1; then
@@ -80,11 +80,12 @@ if [ "$RELEASE_OS" = openindiana ]; then
     cppflags="$cppflags -I/usr/openssl/3/include"
     ldflags="$ldflags -L/usr/openssl/3/lib/amd64 -R/usr/openssl/3/lib/amd64"
     openssl_command=/usr/openssl/3/bin/openssl
+    tls_libs="/usr/openssl/3/lib/amd64/libssl.so /usr/openssl/3/lib/amd64/libcrypto.so"
 fi
 "$cc" --version
 "$openssl_command" version -a
 # Libraries installed by these OS package managers remain runtime dependencies.
-if command -v pkg-config >/dev/null 2>&1 && pkg-config --exists ncursesw openssl; then
+if [ "$RELEASE_OS" != openindiana ] && command -v pkg-config >/dev/null 2>&1 && pkg-config --exists ncursesw openssl; then
     cppflags="$cppflags $(pkg-config --cflags ncursesw openssl)"
     curses_libs=$(pkg-config --libs ncursesw)
     tls_libs=$(pkg-config --libs openssl)

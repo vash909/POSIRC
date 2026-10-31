@@ -1,6 +1,12 @@
 name: Additional Linux CPUs
 on:
   workflow_dispatch:
+    inputs:
+      arches:
+        description: JSON array of CPU targets
+        type: string
+        required: true
+        default: '["aarch64_be", "armebv7", "riscv32", "powerpc", "powerpc64", "mips", "mipsel", "mips64n32", "mips64eln32", "microblaze", "microblazeel", "or1k", "sh4", "sh4eb", "m68k", "mips64", "mips64el"]'
 permissions:
   contents: read
 jobs:
@@ -11,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: ["aarch64_be", "armebv7", "riscv32", "powerpc", "powerpc64", "mips", "mipsel", "mips64n32", "mips64eln32", "microblaze", "microblazeel", "or1k", "sh4", "sh4eb", "m68k"]
+        arch: ${{ fromJSON(inputs.arches) }}
     env:
       RELEASE_ARCH: ${{ matrix.arch }}
     steps:
@@ -22,7 +28,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y gcc make perl xz-utils curl python3 file binutils qemu-user-static binfmt-support
       - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
       - name: Enable the less common QEMU interpreters
-        run: sudo update-binfmts --enable
+        run: |
+          sudo update-binfmts --enable
+          sudo -E python3 scripts/release-binfmt.py
       - id: dependencies
         uses: actions/cache@3edfce9056124e459a23f683a21433670d47daca
         with:
