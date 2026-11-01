@@ -91,7 +91,8 @@ See the [release notes](docs/releases/v0.3.1-beta.2.md) for changes since the fi
 
 ## Arch Linux package
 
-The source package builds `v0.3.0-beta.1` as `0.3.0beta1-1`, under
+The [AUR package `posirc`](https://aur.archlinux.org/packages/posirc) builds
+`v0.3.1-beta.2` as `0.3.1beta2-1`, under
 `GPL-3.0-only`. To build the recipe in this repository, install `base-devel`,
 then run:
 
